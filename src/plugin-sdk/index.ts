@@ -91,7 +91,6 @@ export { emptyPluginConfigSchema } from "../plugins/config-schema.js";
 export type { OpenClawConfig } from "../config/config.js";
 /** @deprecated Use OpenClawConfig instead */
 export type { OpenClawConfig as ClawdbotConfig } from "../config/config.js";
-export { isDangerousNameMatchingEnabled } from "../config/dangerous-name-matching.js";
 
 export type { FileLockHandle, FileLockOptions } from "./file-lock.js";
 export { acquireFileLock, withFileLock } from "./file-lock.js";
@@ -181,16 +180,7 @@ export {
   normalizeAccountId,
   resolveThreadSessionKeys,
 } from "../routing/session-key.js";
-export {
-  formatAllowFromLowercase,
-  isAllowedParsedChatSender,
-  isNormalizedSenderAllowed,
-} from "./allow-from.js";
-export {
-  evaluateSenderGroupAccess,
-  type SenderGroupAccessDecision,
-  type SenderGroupAccessReason,
-} from "./group-access.js";
+export { formatAllowFromLowercase, isAllowedParsedChatSender } from "./allow-from.js";
 export { resolveSenderCommandAuthorization } from "./command-auth.js";
 export { handleSlackMessageAction } from "./slack-message-actions.js";
 export { extractToolSend } from "./tool-send.js";
@@ -209,7 +199,6 @@ export { createLoggerBackedRuntime } from "./runtime.js";
 export { chunkTextForOutbound } from "./text-chunking.js";
 export { readJsonFileWithFallback, writeJsonFileAtomically } from "./json-store.js";
 export { buildRandomTempFilePath, withTempDownloadPath } from "./temp-path.js";
-export { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
 export {
   runPluginCommandWithTimeout,
   type PluginCommandRunOptions,
@@ -375,7 +364,6 @@ export { formatDocsLink } from "../terminal/links.js";
 export {
   resolveDmAllowState,
   resolveDmGroupAccessDecision,
-  resolveDmGroupAccessWithLists,
   resolveEffectiveAllowFromLists,
 } from "../security/dm-policy-shared.js";
 export type { HookEntry } from "../hooks/types.js";

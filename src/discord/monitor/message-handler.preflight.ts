@@ -14,7 +14,6 @@ import { resolveControlCommandGate } from "../../channels/command-gating.js";
 import { logInboundDrop } from "../../channels/logging.js";
 import { resolveMentionGatingWithBypass } from "../../channels/mention-gating.js";
 import { loadConfig } from "../../config/config.js";
-import { isDangerousNameMatchingEnabled } from "../../config/dangerous-name-matching.js";
 import { logVerbose, shouldLogVerbose } from "../../globals.js";
 import { recordChannelActivity } from "../../infra/channel-activity.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
@@ -191,7 +190,7 @@ export async function preflightDiscordMessage(
               name: sender.name,
               tag: sender.tag,
             },
-            allowNameMatching: isDangerousNameMatchingEnabled(params.discordConfig),
+            allowNameMatching: params.discordConfig?.dangerouslyAllowNameMatching === true,
           })
         : { allowed: false };
       const allowMatchMeta = formatAllowlistMatchMeta(allowMatch);
@@ -565,7 +564,7 @@ export async function preflightDiscordMessage(
     guildInfo,
     memberRoleIds,
     sender,
-    allowNameMatching: isDangerousNameMatchingEnabled(params.discordConfig),
+    allowNameMatching: params.discordConfig?.dangerouslyAllowNameMatching === true,
   });
 
   if (!isDirectMessage) {
@@ -582,7 +581,7 @@ export async function preflightDiscordMessage(
             name: sender.name,
             tag: sender.tag,
           },
-          { allowNameMatching: isDangerousNameMatchingEnabled(params.discordConfig) },
+          { allowNameMatching: params.discordConfig?.dangerouslyAllowNameMatching === true },
         )
       : false;
     const useAccessGroups = params.cfg.commands?.useAccessGroups !== false;
@@ -733,6 +732,5 @@ export async function preflightDiscordMessage(
     canDetectMention,
     historyEntry,
     threadBindings: params.threadBindings,
-    discordRestFetch: params.discordRestFetch,
   };
 }

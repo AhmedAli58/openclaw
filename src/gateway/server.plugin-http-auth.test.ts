@@ -1,9 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, expect, test, vi } from "vitest";
-import type { createSubsystemLogger } from "../logging/subsystem.js";
 import type { ResolvedGatewayAuth } from "./auth.js";
-import type { HooksConfigResolved } from "./hooks.js";
-import { createGatewayHttpServer, createHooksRequestHandler } from "./server-http.js";
+import { createGatewayHttpServer } from "./server-http.js";
 import { withTempConfig } from "./test-temp-config.js";
 
 function createRequest(params: {
@@ -65,25 +63,6 @@ async function dispatchRequest(
 ): Promise<void> {
   server.emit("request", req, res);
   await new Promise((resolve) => setImmediate(resolve));
-}
-
-function createHooksConfig(): HooksConfigResolved {
-  return {
-    basePath: "/hooks",
-    token: "hook-secret",
-    maxBodyBytes: 1024,
-    mappings: [],
-    agentPolicy: {
-      defaultAgentId: "main",
-      knownAgentIds: new Set(["main"]),
-      allowedAgentIds: undefined,
-    },
-    sessionPolicy: {
-      allowRequestSessionKey: false,
-      defaultSessionKey: undefined,
-      allowedSessionKeyPrefixes: undefined,
-    },
-  };
 }
 
 describe("gateway plugin HTTP auth boundary", () => {
@@ -163,12 +142,6 @@ describe("gateway plugin HTTP auth boundary", () => {
       run: async () => {
         const handlePluginRequest = vi.fn(async (req: IncomingMessage, res: ServerResponse) => {
           const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
-          if (pathname === "/api/channels") {
-            res.statusCode = 200;
-            res.setHeader("Content-Type", "application/json; charset=utf-8");
-            res.end(JSON.stringify({ ok: true, route: "channel-root" }));
-            return true;
-          }
           if (pathname === "/api/channels/nostr/default/profile") {
             res.statusCode = 200;
             res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -206,16 +179,6 @@ describe("gateway plugin HTTP auth boundary", () => {
         expect(unauthenticated.getBody()).toContain("Unauthorized");
         expect(handlePluginRequest).not.toHaveBeenCalled();
 
-        const unauthenticatedRoot = createResponse();
-        await dispatchRequest(
-          server,
-          createRequest({ path: "/api/channels" }),
-          unauthenticatedRoot.res,
-        );
-        expect(unauthenticatedRoot.res.statusCode).toBe(401);
-        expect(unauthenticatedRoot.getBody()).toContain("Unauthorized");
-        expect(handlePluginRequest).not.toHaveBeenCalled();
-
         const authenticated = createResponse();
         await dispatchRequest(
           server,
@@ -238,103 +201,6 @@ describe("gateway plugin HTTP auth boundary", () => {
         expect(unauthenticatedPublic.getBody()).toContain('"route":"public"');
 
         expect(handlePluginRequest).toHaveBeenCalledTimes(2);
-      },
-    });
-  });
-
-  test.each(["0.0.0.0", "::"])(
-    "returns 404 (not 500) for non-hook routes with hooks enabled and bindHost=%s",
-    async (bindHost) => {
-      const resolvedAuth: ResolvedGatewayAuth = {
-        mode: "none",
-        token: undefined,
-        password: undefined,
-        allowTailscale: false,
-      };
-
-      await withTempConfig({
-        cfg: { gateway: { trustedProxies: [] } },
-        prefix: "openclaw-plugin-http-hooks-bindhost-",
-        run: async () => {
-          const handleHooksRequest = createHooksRequestHandler({
-            getHooksConfig: () => createHooksConfig(),
-            bindHost,
-            port: 18789,
-            logHooks: {
-              warn: vi.fn(),
-              debug: vi.fn(),
-              info: vi.fn(),
-              error: vi.fn(),
-            } as unknown as ReturnType<typeof createSubsystemLogger>,
-            dispatchWakeHook: () => {},
-            dispatchAgentHook: () => "run-1",
-          });
-          const server = createGatewayHttpServer({
-            canvasHost: null,
-            clients: new Set(),
-            controlUiEnabled: false,
-            controlUiBasePath: "/__control__",
-            openAiChatCompletionsEnabled: false,
-            openResponsesEnabled: false,
-            handleHooksRequest,
-            resolvedAuth,
-          });
-
-          const response = createResponse();
-          await dispatchRequest(server, createRequest({ path: "/" }), response.res);
-
-          expect(response.res.statusCode).toBe(404);
-          expect(response.getBody()).toBe("Not Found");
-        },
-      });
-    },
-  );
-
-  test("rejects query-token hooks requests with bindHost=::", async () => {
-    const resolvedAuth: ResolvedGatewayAuth = {
-      mode: "none",
-      token: undefined,
-      password: undefined,
-      allowTailscale: false,
-    };
-
-    await withTempConfig({
-      cfg: { gateway: { trustedProxies: [] } },
-      prefix: "openclaw-plugin-http-hooks-query-token-",
-      run: async () => {
-        const handleHooksRequest = createHooksRequestHandler({
-          getHooksConfig: () => createHooksConfig(),
-          bindHost: "::",
-          port: 18789,
-          logHooks: {
-            warn: vi.fn(),
-            debug: vi.fn(),
-            info: vi.fn(),
-            error: vi.fn(),
-          } as unknown as ReturnType<typeof createSubsystemLogger>,
-          dispatchWakeHook: () => {},
-          dispatchAgentHook: () => "run-1",
-        });
-        const server = createGatewayHttpServer({
-          canvasHost: null,
-          clients: new Set(),
-          controlUiEnabled: false,
-          controlUiBasePath: "/__control__",
-          openAiChatCompletionsEnabled: false,
-          openResponsesEnabled: false,
-          handleHooksRequest,
-          resolvedAuth,
-        });
-
-        const response = createResponse();
-        await dispatchRequest(
-          server,
-          createRequest({ path: "/hooks/wake?token=bad" }),
-          response.res,
-        );
-
-        expect(response.res.statusCode).toBe(400);
-        expect(response.getBody()).toContain("Hook token must be provided");
       },
     });
   });

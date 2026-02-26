@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ExecAllowlistEntry } from "./exec-approvals.js";
-import { resolveDispatchWrapperExecutionPlan } from "./exec-wrapper-resolution.js";
+import { unwrapDispatchWrappersForResolution } from "./exec-wrapper-resolution.js";
 import { expandHomePrefix } from "./home-dir.js";
 
 export const DEFAULT_SAFE_BINS = ["jq", "cut", "uniq", "head", "tail", "tr", "wc"];
@@ -10,10 +10,6 @@ export type CommandResolution = {
   rawExecutable: string;
   resolvedPath?: string;
   executableName: string;
-  effectiveArgv?: string[];
-  wrapperChain?: string[];
-  policyBlocked?: boolean;
-  blockedWrapper?: string;
 };
 
 function isExecutableFile(filePath: string): boolean {
@@ -97,14 +93,7 @@ export function resolveCommandResolution(
   }
   const resolvedPath = resolveExecutablePath(rawExecutable, cwd, env);
   const executableName = resolvedPath ? path.basename(resolvedPath) : rawExecutable;
-  return {
-    rawExecutable,
-    resolvedPath,
-    executableName,
-    effectiveArgv: [rawExecutable],
-    wrapperChain: [],
-    policyBlocked: false,
-  };
+  return { rawExecutable, resolvedPath, executableName };
 }
 
 export function resolveCommandResolutionFromArgv(
@@ -112,23 +101,14 @@ export function resolveCommandResolutionFromArgv(
   cwd?: string,
   env?: NodeJS.ProcessEnv,
 ): CommandResolution | null {
-  const plan = resolveDispatchWrapperExecutionPlan(argv);
-  const effectiveArgv = plan.argv;
+  const effectiveArgv = unwrapDispatchWrappersForResolution(argv);
   const rawExecutable = effectiveArgv[0]?.trim();
   if (!rawExecutable) {
     return null;
   }
   const resolvedPath = resolveExecutablePath(rawExecutable, cwd, env);
   const executableName = resolvedPath ? path.basename(resolvedPath) : rawExecutable;
-  return {
-    rawExecutable,
-    resolvedPath,
-    executableName,
-    effectiveArgv,
-    wrapperChain: plan.wrappers,
-    policyBlocked: plan.policyBlocked,
-    blockedWrapper: plan.blockedWrapper,
-  };
+  return { rawExecutable, resolvedPath, executableName };
 }
 
 function normalizeMatchTarget(value: string): string {
@@ -223,17 +203,7 @@ export function matchAllowlist(
   entries: ExecAllowlistEntry[],
   resolution: CommandResolution | null,
 ): ExecAllowlistEntry | null {
-  if (!entries.length) {
-    return null;
-  }
-  // A bare "*" wildcard allows any parsed executable command.
-  // Check it before the resolvedPath guard so unresolved PATH lookups still
-  // match (for example platform-specific executables without known extensions).
-  const bareWild = entries.find((e) => e.pattern?.trim() === "*");
-  if (bareWild && resolution) {
-    return bareWild;
-  }
-  if (!resolution?.resolvedPath) {
+  if (!entries.length || !resolution?.resolvedPath) {
     return null;
   }
   const resolvedPath = resolution.resolvedPath;

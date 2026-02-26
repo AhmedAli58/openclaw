@@ -20,8 +20,6 @@ import { createWebhookHandler } from "./webhook-handler.js";
 const CHANNEL_ID = "synology-chat";
 const SynologyChatConfigSchema = buildChannelConfigSchema(z.object({}).passthrough());
 
-const activeRouteUnregisters = new Map<string, () => void>();
-
 export function createSynologyChatPlugin() {
   return {
     id: CHANNEL_ID,
@@ -141,11 +139,6 @@ export function createSynologyChatPlugin() {
             '- Synology Chat: dmPolicy="open" allows any user to message the bot. Consider "allowlist" for production use.',
           );
         }
-        if (account.dmPolicy === "allowlist" && account.allowedUserIds.length === 0) {
-          warnings.push(
-            '- Synology Chat: dmPolicy="allowlist" with empty allowedUserIds blocks all senders. Add users or set dmPolicy="open".',
-          );
-        }
         return warnings;
       },
     },
@@ -226,12 +219,6 @@ export function createSynologyChatPlugin() {
           );
           return { stop: () => {} };
         }
-        if (account.dmPolicy === "allowlist" && account.allowedUserIds.length === 0) {
-          log?.warn?.(
-            `Synology Chat account ${accountId} has dmPolicy=allowlist but empty allowedUserIds; refusing to start route`,
-          );
-          return { stop: () => {} };
-        }
 
         log?.info?.(
           `Starting Synology Chat channel (account: ${accountId}, path: ${account.webhookPath})`,
@@ -283,16 +270,7 @@ export function createSynologyChatPlugin() {
           log,
         });
 
-        // Deregister any stale route from a previous start (e.g. on auto-restart)
-        // to avoid "already registered" collisions that trigger infinite loops.
-        const routeKey = `${accountId}:${account.webhookPath}`;
-        const prevUnregister = activeRouteUnregisters.get(routeKey);
-        if (prevUnregister) {
-          log?.info?.(`Deregistering stale route before re-registering: ${account.webhookPath}`);
-          prevUnregister();
-          activeRouteUnregisters.delete(routeKey);
-        }
-
+        // Register HTTP route via the SDK
         const unregister = registerPluginHttpRoute({
           path: account.webhookPath,
           pluginId: CHANNEL_ID,
@@ -300,7 +278,6 @@ export function createSynologyChatPlugin() {
           log: (msg: string) => log?.info?.(msg),
           handler,
         });
-        activeRouteUnregisters.set(routeKey, unregister);
 
         log?.info?.(`Registered HTTP route: ${account.webhookPath} for Synology Chat`);
 
@@ -308,7 +285,6 @@ export function createSynologyChatPlugin() {
           stop: () => {
             log?.info?.(`Stopping Synology Chat channel (account: ${accountId})`);
             if (typeof unregister === "function") unregister();
-            activeRouteUnregisters.delete(routeKey);
           },
         };
       },

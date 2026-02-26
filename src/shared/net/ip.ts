@@ -29,9 +29,6 @@ const PRIVATE_OR_LOOPBACK_IPV6_RANGES = new Set<Ipv6Range>([
   "uniqueLocal",
 ]);
 const RFC2544_BENCHMARK_PREFIX: [ipaddr.IPv4, number] = [ipaddr.IPv4.parse("198.18.0.0"), 15];
-export type Ipv4SpecialUseBlockOptions = {
-  allowRfc2544BenchmarkRange?: boolean;
-};
 
 const EMBEDDED_IPV4_SENTINEL_RULES: Array<{
   matches: (parts: number[]) => boolean;
@@ -250,15 +247,10 @@ export function isCarrierGradeNatIpv4Address(raw: string | undefined): boolean {
   return parsed.range() === "carrierGradeNat";
 }
 
-export function isBlockedSpecialUseIpv4Address(
-  address: ipaddr.IPv4,
-  options: Ipv4SpecialUseBlockOptions = {},
-): boolean {
-  const inRfc2544BenchmarkRange = address.match(RFC2544_BENCHMARK_PREFIX);
-  if (inRfc2544BenchmarkRange && options.allowRfc2544BenchmarkRange === true) {
-    return false;
-  }
-  return BLOCKED_IPV4_SPECIAL_USE_RANGES.has(address.range()) || inRfc2544BenchmarkRange;
+export function isBlockedSpecialUseIpv4Address(address: ipaddr.IPv4): boolean {
+  return (
+    BLOCKED_IPV4_SPECIAL_USE_RANGES.has(address.range()) || address.match(RFC2544_BENCHMARK_PREFIX)
+  );
 }
 
 function decodeIpv4FromHextets(high: number, low: number): ipaddr.IPv4 {

@@ -18,7 +18,6 @@ describe("parseSlackModalPrivateMetadata", () => {
           sessionKey: "agent:main:slack:channel:C1",
           channelId: "D123",
           channelType: "im",
-          userId: "U123",
           ignored: "x",
         }),
       ),
@@ -26,7 +25,6 @@ describe("parseSlackModalPrivateMetadata", () => {
       sessionKey: "agent:main:slack:channel:C1",
       channelId: "D123",
       channelType: "im",
-      userId: "U123",
     });
   });
 });
@@ -39,13 +37,11 @@ describe("encodeSlackModalPrivateMetadata", () => {
           sessionKey: "agent:main:slack:channel:C1",
           channelId: "",
           channelType: "im",
-          userId: "U123",
         }),
       ),
     ).toEqual({
       sessionKey: "agent:main:slack:channel:C1",
       channelType: "im",
-      userId: "U123",
     });
   });
 

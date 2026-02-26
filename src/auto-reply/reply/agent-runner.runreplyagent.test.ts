@@ -8,7 +8,7 @@ import type { TypingMode } from "../../config/types.js";
 import { withStateDirEnv } from "../../test-helpers/state-dir-env.js";
 import type { TemplateContext } from "../templating.js";
 import type { GetReplyOptions } from "../types.js";
-import { enqueueFollowupRun, type FollowupRun, type QueueSettings } from "./queue.js";
+import type { FollowupRun, QueueSettings } from "./queue.js";
 import { createMockTypingController } from "./test-helpers.js";
 
 type AgentRunParams = {
@@ -86,7 +86,6 @@ beforeAll(async () => {
 beforeEach(() => {
   state.runEmbeddedPiAgentMock.mockClear();
   state.runCliAgentMock.mockClear();
-  vi.mocked(enqueueFollowupRun).mockClear();
   vi.stubEnv("OPENCLAW_TEST_FAST", "1");
 });
 
@@ -99,9 +98,6 @@ function createMinimalRun(params?: {
   storePath?: string;
   typingMode?: TypingMode;
   blockStreamingEnabled?: boolean;
-  isActive?: boolean;
-  shouldFollowup?: boolean;
-  resolvedQueueMode?: string;
   runOverrides?: Partial<FollowupRun["run"]>;
 }) {
   const typing = createMockTypingController();
@@ -110,9 +106,7 @@ function createMinimalRun(params?: {
     Provider: "whatsapp",
     MessageSid: "msg",
   } as unknown as TemplateContext;
-  const resolvedQueue = {
-    mode: params?.resolvedQueueMode ?? "interrupt",
-  } as unknown as QueueSettings;
+  const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
   const sessionKey = params?.sessionKey ?? "main";
   const followupRun = {
     prompt: "hello",
@@ -153,8 +147,8 @@ function createMinimalRun(params?: {
         queueKey: "main",
         resolvedQueue,
         shouldSteer: false,
-        shouldFollowup: params?.shouldFollowup ?? false,
-        isActive: params?.isActive ?? false,
+        shouldFollowup: false,
+        isActive: false,
         isStreaming: false,
         opts,
         typing,
@@ -279,39 +273,6 @@ async function runReplyAgentWithBase(params: {
     typingMode: params.typingMode ?? "instant",
   });
 }
-
-describe("runReplyAgent heartbeat followup guard", () => {
-  it("drops heartbeat runs when another run is active", async () => {
-    const { run, typing } = createMinimalRun({
-      opts: { isHeartbeat: true },
-      isActive: true,
-      shouldFollowup: true,
-      resolvedQueueMode: "collect",
-    });
-
-    const result = await run();
-
-    expect(result).toBeUndefined();
-    expect(vi.mocked(enqueueFollowupRun)).not.toHaveBeenCalled();
-    expect(state.runEmbeddedPiAgentMock).not.toHaveBeenCalled();
-    expect(typing.cleanup).toHaveBeenCalledTimes(1);
-  });
-
-  it("still enqueues non-heartbeat runs when another run is active", async () => {
-    const { run } = createMinimalRun({
-      opts: { isHeartbeat: false },
-      isActive: true,
-      shouldFollowup: true,
-      resolvedQueueMode: "collect",
-    });
-
-    const result = await run();
-
-    expect(result).toBeUndefined();
-    expect(vi.mocked(enqueueFollowupRun)).toHaveBeenCalledTimes(1);
-    expect(state.runEmbeddedPiAgentMock).not.toHaveBeenCalled();
-  });
-});
 
 describe("runReplyAgent typing (heartbeat)", () => {
   async function withTempStateDir<T>(fn: (stateDir: string) => Promise<T>): Promise<T> {
@@ -1186,54 +1147,6 @@ describe("runReplyAgent typing (heartbeat)", () => {
       const persisted = JSON.parse(await fs.readFile(storePath, "utf-8"));
       expect(persisted.main.sessionId).toBe(sessionStore.main.sessionId);
     });
-  });
-
-  it("surfaces overflow fallback when embedded run returns empty payloads", async () => {
-    state.runEmbeddedPiAgentMock.mockImplementationOnce(async () => ({
-      payloads: [],
-      meta: {
-        durationMs: 1,
-        error: {
-          kind: "context_overflow",
-          message: 'Context overflow: Summarization failed: 400 {"message":"prompt is too long"}',
-        },
-      },
-    }));
-
-    const { run } = createMinimalRun();
-    const res = await run();
-    const payload = Array.isArray(res) ? res[0] : res;
-    expect(payload).toMatchObject({
-      text: expect.stringContaining("conversation is too large"),
-    });
-    if (!payload) {
-      throw new Error("expected payload");
-    }
-    expect(payload.text).toContain("/new");
-  });
-
-  it("surfaces overflow fallback when embedded payload text is whitespace-only", async () => {
-    state.runEmbeddedPiAgentMock.mockImplementationOnce(async () => ({
-      payloads: [{ text: "   \n\t  ", isError: true }],
-      meta: {
-        durationMs: 1,
-        error: {
-          kind: "context_overflow",
-          message: 'Context overflow: Summarization failed: 400 {"message":"prompt is too long"}',
-        },
-      },
-    }));
-
-    const { run } = createMinimalRun();
-    const res = await run();
-    const payload = Array.isArray(res) ? res[0] : res;
-    expect(payload).toMatchObject({
-      text: expect.stringContaining("conversation is too large"),
-    });
-    if (!payload) {
-      throw new Error("expected payload");
-    }
-    expect(payload.text).toContain("/new");
   });
 
   it("resets the session after role ordering payloads", async () => {

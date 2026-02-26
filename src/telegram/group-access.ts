@@ -42,11 +42,6 @@ export const evaluateTelegramGroupBaseAccess = (params: {
     return { allowed: true };
   }
 
-  // Explicit per-group/topic allowFrom override must fail closed when empty.
-  if (!params.effectiveGroupAllow.hasEntries) {
-    return { allowed: false, reason: "group-override-unauthorized" };
-  }
-
   const senderId = params.senderId ?? "";
   if (params.requireSenderForAllowOverride && !senderId) {
     return { allowed: false, reason: "group-override-unauthorized" };

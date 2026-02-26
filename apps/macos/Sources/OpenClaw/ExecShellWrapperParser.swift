@@ -63,11 +63,11 @@ enum ExecShellWrapperParser {
     private static func extractPayload(command: [String], spec: WrapperSpec) -> String? {
         switch spec.kind {
         case .posix:
-            self.extractPosixInlineCommand(command)
+            return self.extractPosixInlineCommand(command)
         case .cmd:
-            self.extractCmdInlineCommand(command)
+            return self.extractCmdInlineCommand(command)
         case .powershell:
-            self.extractPowerShellInlineCommand(command)
+            return self.extractPowerShellInlineCommand(command)
         }
     }
 
@@ -81,9 +81,7 @@ enum ExecShellWrapperParser {
     }
 
     private static func extractCmdInlineCommand(_ command: [String]) -> String? {
-        guard let idx = command
-            .firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "/c" })
-        else {
+        guard let idx = command.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "/c" }) else {
             return nil
         }
         let tail = command.suffix(from: command.index(after: idx)).joined(separator: " ")

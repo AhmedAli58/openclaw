@@ -91,7 +91,6 @@ export type RegisterTelegramHandlerParams = {
   opts: TelegramBotOptions;
   runtime: RuntimeEnv;
   telegramCfg: TelegramAccountConfig;
-  allowFrom?: Array<string | number>;
   groupAllowFrom?: Array<string | number>;
   resolveGroupPolicy: (chatId: string | number) => ChannelGroupPolicy;
   resolveTelegramGroupConfig: (

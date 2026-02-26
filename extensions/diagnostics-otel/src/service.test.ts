@@ -51,11 +51,11 @@ vi.mock("@opentelemetry/sdk-node", () => ({
   },
 }));
 
-vi.mock("@opentelemetry/exporter-metrics-otlp-proto", () => ({
+vi.mock("@opentelemetry/exporter-metrics-otlp-http", () => ({
   OTLPMetricExporter: class {},
 }));
 
-vi.mock("@opentelemetry/exporter-trace-otlp-proto", () => ({
+vi.mock("@opentelemetry/exporter-trace-otlp-http", () => ({
   OTLPTraceExporter: class {
     constructor(options?: unknown) {
       traceExporterCtor(options);
@@ -63,7 +63,7 @@ vi.mock("@opentelemetry/exporter-trace-otlp-proto", () => ({
   },
 }));
 
-vi.mock("@opentelemetry/exporter-logs-otlp-proto", () => ({
+vi.mock("@opentelemetry/exporter-logs-otlp-http", () => ({
   OTLPLogExporter: class {},
 }));
 

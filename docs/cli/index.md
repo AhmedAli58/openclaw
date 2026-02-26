@@ -117,7 +117,12 @@ openclaw [--dev] [--profile <name>] <command>
     logout
   directory
   skills
+    search
+    install
     list
+    update
+    remove
+    status
     info
     check
   plugins
@@ -281,7 +286,7 @@ Vector search over `MEMORY.md` + `memory/*.md`:
 
 - `openclaw memory status` — show index stats.
 - `openclaw memory index` — reindex memory files.
-- `openclaw memory search "<query>"` (or `--query "<query>"`) — semantic search over memory.
+- `openclaw memory search "<query>"` — semantic search over memory.
 
 ## Chat slash commands
 
@@ -446,21 +451,24 @@ openclaw status --deep
 
 ### `skills`
 
-List and inspect available skills plus readiness info.
+Install and manage registry skills plus readiness info for loaded skills.
 
 Subcommands:
 
-- `skills list`: list skills (default when no subcommand).
-- `skills info <name>`: show details for one skill.
+- `skills search <query>`: search registry skills.
+- `skills install <name> [--force] [--init]`: install one skill.
+- `skills list`: list installed managed skills and update status.
+- `skills update <name>`: update one installed skill.
+- `skills remove <name>`: remove one installed skill.
+- `skills status`: list loaded skills and readiness (bundled/workspace/managed).
+- `skills info <name>`: show loaded skill details.
 - `skills check`: summary of ready vs missing requirements.
 
 Options:
 
-- `--eligible`: show only ready skills.
-- `--json`: output JSON (no styling).
-- `-v`, `--verbose`: include missing requirements detail.
-
-Tip: use `npx clawhub` to search, install, and sync skills.
+- `--json`: output JSON.
+- `--eligible`: for `skills status`, show only ready skills.
+- `-v`, `--verbose`: for `skills status`, include missing requirement details.
 
 ### `pairing`
 
@@ -468,23 +476,8 @@ Approve DM pairing requests across channels.
 
 Subcommands:
 
-- `pairing list [channel] [--channel <channel>] [--account <id>] [--json]`
-- `pairing approve <channel> <code> [--account <id>] [--notify]`
-- `pairing approve --channel <channel> [--account <id>] <code> [--notify]`
-
-### `devices`
-
-Manage gateway device pairing entries and per-role device tokens.
-
-Subcommands:
-
-- `devices list [--json]`
-- `devices approve [requestId] [--latest]`
-- `devices reject <requestId>`
-- `devices remove <deviceId>`
-- `devices clear --yes [--pending]`
-- `devices rotate --device <id> --role <role> [--scope <scope...>]`
-- `devices revoke --device <id> --role <role>`
+- `pairing list <channel> [--json]`
+- `pairing approve <channel> <code> [--notify]`
 
 ### `webhooks gmail`
 

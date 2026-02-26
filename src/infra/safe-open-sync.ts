@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import { sameFileIdentity as hasSameFileIdentity } from "./file-identity.js";
 
 export type SafeOpenSyncFailureReason = "path" | "validation" | "io";
 
@@ -18,7 +17,7 @@ function isExpectedPathError(error: unknown): boolean {
 }
 
 export function sameFileIdentity(left: fs.Stats, right: fs.Stats): boolean {
-  return hasSameFileIdentity(left, right);
+  return left.dev === right.dev && left.ino === right.ino;
 }
 
 export function openVerifiedFileSync(params: {

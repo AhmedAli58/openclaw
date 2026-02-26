@@ -22,12 +22,7 @@ type PackageJson = {
 };
 
 function normalizePluginSyncVersion(version: string): string {
-  const normalized = version.trim().replace(/^v/, "");
-  const base = /^([0-9]+\.[0-9]+\.[0-9]+)/.exec(normalized)?.[1];
-  if (base) {
-    return base;
-  }
-  return normalized.replace(/[-+].*$/, "");
+  return version.replace(/[-+].*$/, "");
 }
 
 function runPackDry(): PackResult[] {

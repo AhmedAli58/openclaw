@@ -101,7 +101,6 @@ function createSandboxConfig(dns: string[], binds?: string[]): SandboxConfig {
       dns,
       extraHosts: ["host.docker.internal:host-gateway"],
       binds: binds ?? ["/tmp/workspace:/workspace:rw"],
-      dangerouslyAllowReservedContainerTargets: true,
     },
     browser: {
       enabled: false,
@@ -197,7 +196,6 @@ describe("ensureSandboxContainer config-hash recreation", () => {
       ["1.1.1.1"],
       ["/tmp/workspace-shared/USER.md:/workspace/USER.md:ro"],
     );
-    cfg.docker.dangerouslyAllowExternalBindSources = true;
     const expectedHash = computeSandboxConfigHash({
       docker: cfg.docker,
       workspaceAccess: cfg.workspaceAccess,

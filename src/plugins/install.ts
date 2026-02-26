@@ -26,7 +26,6 @@ import { validateRegistryNpmSpec } from "../infra/npm-registry-spec.js";
 import { extensionUsesSkippedScannerPath, isPathInside } from "../security/scan-paths.js";
 import * as skillScanner from "../security/skill-scanner.js";
 import { CONFIG_DIR, resolveUserPath } from "../utils.js";
-import { loadPluginManifest } from "./manifest.js";
 
 type PluginInstallLogger = {
   info?: (message: string) => void;
@@ -150,19 +149,7 @@ async function installPluginFromPackageDir(params: {
   }
 
   const pkgName = typeof manifest.name === "string" ? manifest.name : "";
-  const npmPluginId = pkgName ? unscopedPackageName(pkgName) : "plugin";
-
-  // Prefer the canonical `id` from openclaw.plugin.json over the npm package name.
-  // This avoids a latent key-mismatch bug: if the manifest id (e.g. "memory-cognee")
-  // differs from the npm package name (e.g. "cognee-openclaw"), the plugin registry
-  // uses the manifest id as the authoritative key, so the config entry must match it.
-  const ocManifestResult = loadPluginManifest(params.packageDir);
-  const manifestPluginId =
-    ocManifestResult.ok && ocManifestResult.manifest.id
-      ? unscopedPackageName(ocManifestResult.manifest.id)
-      : undefined;
-
-  const pluginId = manifestPluginId ?? npmPluginId;
+  const pluginId = pkgName ? unscopedPackageName(pkgName) : "plugin";
   const pluginIdError = validatePluginId(pluginId);
   if (pluginIdError) {
     return { ok: false, error: pluginIdError };
@@ -172,12 +159,6 @@ async function installPluginFromPackageDir(params: {
       ok: false,
       error: `plugin id mismatch: expected ${params.expectedPluginId}, got ${pluginId}`,
     };
-  }
-
-  if (manifestPluginId && manifestPluginId !== npmPluginId) {
-    logger.info?.(
-      `Plugin manifest id "${manifestPluginId}" differs from npm package name "${npmPluginId}"; using manifest id as the config key.`,
-    );
   }
 
   const packageDir = path.resolve(params.packageDir);

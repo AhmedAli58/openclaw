@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "playwright-core";
 import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
-import { DEFAULT_UPLOAD_DIR, resolveStrictExistingPathsWithinRoot } from "./paths.js";
 import {
   ensurePageState,
   getPageForTargetId,
@@ -167,20 +166,7 @@ export async function armFileUploadViaPlaywright(opts: {
         }
         return;
       }
-      const uploadPathsResult = await resolveStrictExistingPathsWithinRoot({
-        rootDir: DEFAULT_UPLOAD_DIR,
-        requestedPaths: opts.paths,
-        scopeLabel: `uploads directory (${DEFAULT_UPLOAD_DIR})`,
-      });
-      if (!uploadPathsResult.ok) {
-        try {
-          await page.keyboard.press("Escape");
-        } catch {
-          // Best-effort.
-        }
-        return;
-      }
-      await fileChooser.setFiles(uploadPathsResult.paths);
+      await fileChooser.setFiles(opts.paths);
       try {
         const input =
           typeof fileChooser.element === "function"

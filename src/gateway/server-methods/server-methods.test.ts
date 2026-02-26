@@ -248,7 +248,6 @@ describe("exec approval handlers", () => {
   const defaultExecApprovalRequestParams = {
     command: "echo ok",
     cwd: "/tmp",
-    nodeId: "node-1",
     host: "node",
     timeoutMs: 2000,
   } as const;
@@ -324,7 +323,6 @@ describe("exec approval handlers", () => {
       const params = {
         command: "echo hi",
         cwd: "/tmp",
-        nodeId: "node-1",
         host: "node",
       };
       expect(validateExecApprovalRequestParams(params)).toBe(true);
@@ -334,7 +332,6 @@ describe("exec approval handlers", () => {
       const params = {
         command: "echo hi",
         cwd: "/tmp",
-        nodeId: "node-1",
         host: "node",
         resolvedPath: "/usr/bin/echo",
       };
@@ -345,7 +342,6 @@ describe("exec approval handlers", () => {
       const params = {
         command: "echo hi",
         cwd: "/tmp",
-        nodeId: "node-1",
         host: "node",
         resolvedPath: undefined,
       };
@@ -356,31 +352,11 @@ describe("exec approval handlers", () => {
       const params = {
         command: "echo hi",
         cwd: "/tmp",
-        nodeId: "node-1",
         host: "node",
         resolvedPath: null,
       };
       expect(validateExecApprovalRequestParams(params)).toBe(true);
     });
-  });
-
-  it("rejects host=node approval requests without nodeId", async () => {
-    const { handlers, respond, context } = createExecApprovalFixture();
-    await requestExecApproval({
-      handlers,
-      respond,
-      context,
-      params: {
-        nodeId: undefined,
-      },
-    });
-    expect(respond).toHaveBeenCalledWith(
-      false,
-      undefined,
-      expect.objectContaining({
-        message: "nodeId is required for host=node",
-      }),
-    );
   });
 
   it("broadcasts request + resolve", async () => {

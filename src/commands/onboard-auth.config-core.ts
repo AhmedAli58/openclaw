@@ -4,7 +4,6 @@ import {
   HUGGINGFACE_MODEL_CATALOG,
 } from "../agents/huggingface-models.js";
 import {
-  buildKilocodeProvider,
   buildKimiCodingProvider,
   buildQianfanProvider,
   buildXiaomiProvider,
@@ -61,10 +60,12 @@ import {
   applyProviderConfigWithModelCatalog,
 } from "./onboard-auth.config-shared.js";
 import {
+  buildKilocodeModelDefinition,
   buildMistralModelDefinition,
   buildZaiModelDefinition,
   buildMoonshotModelDefinition,
   buildXaiModelDefinition,
+  KILOCODE_DEFAULT_MODEL_ID,
   MISTRAL_BASE_URL,
   MISTRAL_DEFAULT_MODEL_ID,
   QIANFAN_BASE_URL,
@@ -446,14 +447,15 @@ export function applyKilocodeProviderConfig(cfg: OpenClawConfig): OpenClawConfig
     alias: models[KILOCODE_DEFAULT_MODEL_REF]?.alias ?? "Kilo Gateway",
   };
 
-  const kilocodeModels = buildKilocodeProvider().models ?? [];
+  const defaultModel = buildKilocodeModelDefinition();
 
-  return applyProviderConfigWithModelCatalog(cfg, {
+  return applyProviderConfigWithDefaultModel(cfg, {
     agentModels: models,
     providerId: "kilocode",
     api: "openai-completions",
     baseUrl: KILOCODE_BASE_URL,
-    catalogModels: kilocodeModels,
+    defaultModel,
+    defaultModelId: KILOCODE_DEFAULT_MODEL_ID,
   });
 }
 

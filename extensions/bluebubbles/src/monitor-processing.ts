@@ -7,7 +7,8 @@ import {
   logTypingFailure,
   recordPendingHistoryEntryIfEnabled,
   resolveAckReaction,
-  resolveDmGroupAccessWithLists,
+  resolveDmGroupAccessDecision,
+  resolveEffectiveAllowFromLists,
   resolveControlCommandGate,
   stripMarkdown,
   type HistoryEntry,
@@ -503,13 +504,24 @@ export async function processMessage(
   const storeAllowFrom = await core.channel.pairing
     .readAllowFromStore("bluebubbles")
     .catch(() => []);
-  const accessDecision = resolveDmGroupAccessWithLists({
-    isGroup,
-    dmPolicy,
-    groupPolicy,
+  const { effectiveAllowFrom, effectiveGroupAllowFrom } = resolveEffectiveAllowFromLists({
     allowFrom: account.config.allowFrom,
     groupAllowFrom: account.config.groupAllowFrom,
     storeAllowFrom,
+    dmPolicy,
+  });
+  const groupAllowEntry = formatGroupAllowlistEntry({
+    chatGuid: message.chatGuid,
+    chatId: message.chatId ?? undefined,
+    chatIdentifier: message.chatIdentifier ?? undefined,
+  });
+  const groupName = message.chatName?.trim() || undefined;
+  const accessDecision = resolveDmGroupAccessDecision({
+    isGroup,
+    dmPolicy,
+    groupPolicy,
+    effectiveAllowFrom,
+    effectiveGroupAllowFrom,
     isSenderAllowed: (allowFrom) =>
       isAllowedBlueBubblesSender({
         allowFrom,
@@ -519,14 +531,6 @@ export async function processMessage(
         chatIdentifier: message.chatIdentifier ?? undefined,
       }),
   });
-  const effectiveAllowFrom = accessDecision.effectiveAllowFrom;
-  const effectiveGroupAllowFrom = accessDecision.effectiveGroupAllowFrom;
-  const groupAllowEntry = formatGroupAllowlistEntry({
-    chatGuid: message.chatGuid,
-    chatId: message.chatId ?? undefined,
-    chatIdentifier: message.chatIdentifier ?? undefined,
-  });
-  const groupName = message.chatName?.trim() || undefined;
 
   if (accessDecision.decision !== "allow") {
     if (isGroup) {
@@ -1385,13 +1389,18 @@ export async function processReaction(
   const storeAllowFrom = await core.channel.pairing
     .readAllowFromStore("bluebubbles")
     .catch(() => []);
-  const accessDecision = resolveDmGroupAccessWithLists({
-    isGroup: reaction.isGroup,
-    dmPolicy,
-    groupPolicy,
+  const { effectiveAllowFrom, effectiveGroupAllowFrom } = resolveEffectiveAllowFromLists({
     allowFrom: account.config.allowFrom,
     groupAllowFrom: account.config.groupAllowFrom,
     storeAllowFrom,
+    dmPolicy,
+  });
+  const accessDecision = resolveDmGroupAccessDecision({
+    isGroup: reaction.isGroup,
+    dmPolicy,
+    groupPolicy,
+    effectiveAllowFrom,
+    effectiveGroupAllowFrom,
     isSenderAllowed: (allowFrom) =>
       isAllowedBlueBubblesSender({
         allowFrom,

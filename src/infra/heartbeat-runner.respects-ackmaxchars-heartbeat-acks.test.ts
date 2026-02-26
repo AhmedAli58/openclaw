@@ -15,9 +15,6 @@ vi.mock("jiti", () => ({ createJiti: () => () => ({}) }));
 installHeartbeatRunnerTestRuntime();
 
 describe("runHeartbeatOnce ack handling", () => {
-  const WHATSAPP_GROUP = "120363140186826074@g.us";
-  const TELEGRAM_GROUP = "-1001234567890";
-
   function createHeartbeatConfig(params: {
     tmpDir: string;
     storePath: string;
@@ -108,7 +105,7 @@ describe("runHeartbeatOnce ack handling", () => {
     await seedMainSessionStore(params.storePath, cfg, {
       lastChannel: "telegram",
       lastProvider: "telegram",
-      lastTo: TELEGRAM_GROUP,
+      lastTo: "12345",
     });
 
     params.replySpy.mockResolvedValue({ text: params.replyText });
@@ -153,7 +150,7 @@ describe("runHeartbeatOnce ack handling", () => {
     await seedMainSessionStore(params.storePath, cfg, {
       lastChannel: "whatsapp",
       lastProvider: "whatsapp",
-      lastTo: WHATSAPP_GROUP,
+      lastTo: "+1555",
     });
     return cfg;
   }
@@ -169,7 +166,7 @@ describe("runHeartbeatOnce ack handling", () => {
       await seedMainSessionStore(storePath, cfg, {
         lastChannel: "whatsapp",
         lastProvider: "whatsapp",
-        lastTo: WHATSAPP_GROUP,
+        lastTo: "+1555",
       });
 
       replySpy.mockResolvedValue({ text: "HEARTBEAT_OK 🦞" });
@@ -195,7 +192,7 @@ describe("runHeartbeatOnce ack handling", () => {
       await seedMainSessionStore(storePath, cfg, {
         lastChannel: "whatsapp",
         lastProvider: "whatsapp",
-        lastTo: WHATSAPP_GROUP,
+        lastTo: "+1555",
       });
 
       replySpy.mockResolvedValue({ text: "HEARTBEAT_OK" });
@@ -207,7 +204,7 @@ describe("runHeartbeatOnce ack handling", () => {
       });
 
       expect(sendWhatsApp).toHaveBeenCalledTimes(1);
-      expect(sendWhatsApp).toHaveBeenCalledWith(WHATSAPP_GROUP, "HEARTBEAT_OK", expect.any(Object));
+      expect(sendWhatsApp).toHaveBeenCalledWith("+1555", "HEARTBEAT_OK", expect.any(Object));
     });
   });
 
@@ -242,7 +239,7 @@ describe("runHeartbeatOnce ack handling", () => {
 
       expect(sendTelegram).toHaveBeenCalledTimes(expectedCalls);
       if (expectedText) {
-        expect(sendTelegram).toHaveBeenCalledWith(TELEGRAM_GROUP, expectedText, expect.any(Object));
+        expect(sendTelegram).toHaveBeenCalledWith("12345", expectedText, expect.any(Object));
       }
     });
   });
@@ -258,7 +255,7 @@ describe("runHeartbeatOnce ack handling", () => {
       await seedMainSessionStore(storePath, cfg, {
         lastChannel: "whatsapp",
         lastProvider: "whatsapp",
-        lastTo: WHATSAPP_GROUP,
+        lastTo: "+1555",
       });
 
       const sendWhatsApp = createMessageSendSpy();
@@ -306,7 +303,7 @@ describe("runHeartbeatOnce ack handling", () => {
         updatedAt: originalUpdatedAt,
         lastChannel: "whatsapp",
         lastProvider: "whatsapp",
-        lastTo: WHATSAPP_GROUP,
+        lastTo: "+1555",
       });
 
       replySpy.mockImplementationOnce(async () => {
@@ -375,11 +372,11 @@ describe("runHeartbeatOnce ack handling", () => {
       await seedMainSessionStore(storePath, cfg, {
         lastChannel: "telegram",
         lastProvider: "telegram",
-        lastTo: TELEGRAM_GROUP,
+        lastTo: "123456",
       });
 
       replySpy.mockResolvedValue({ text: "Hello from heartbeat" });
-      const sendTelegram = createMessageSendSpy({ chatId: TELEGRAM_GROUP });
+      const sendTelegram = createMessageSendSpy({ chatId: "123456" });
 
       await runHeartbeatOnce({
         cfg,
@@ -388,7 +385,7 @@ describe("runHeartbeatOnce ack handling", () => {
 
       expect(sendTelegram).toHaveBeenCalledTimes(1);
       expect(sendTelegram).toHaveBeenCalledWith(
-        TELEGRAM_GROUP,
+        "123456",
         "Hello from heartbeat",
         expect.objectContaining({ accountId: params.expectedAccountId, verbose: false }),
       );

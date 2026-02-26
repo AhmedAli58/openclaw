@@ -43,7 +43,6 @@ import { appendUsageLine, formatResponseUsageLine } from "./agent-runner-utils.j
 import { createAudioAsVoiceBuffer, createBlockReplyPipeline } from "./block-reply-pipeline.js";
 import { resolveBlockStreamingCoalescing } from "./block-streaming.js";
 import { createFollowupRunner } from "./followup-runner.js";
-import { resolveOriginMessageProvider, resolveOriginMessageTo } from "./origin-routing.js";
 import {
   auditPostCompactionReads,
   extractReadPaths,
@@ -51,7 +50,6 @@ import {
   readSessionMessages,
 } from "./post-compaction-audit.js";
 import { readPostCompactionContext } from "./post-compaction-context.js";
-import { resolveActiveRunQueueAction } from "./queue-policy.js";
 import { enqueueFollowupRun, type FollowupRun, type QueueSettings } from "./queue.js";
 import { createReplyToModeFilterForChannel, resolveReplyToMode } from "./reply-threading.js";
 import { incrementRunCompactionCount, persistRunSessionUsage } from "./session-run-accounting.js";
@@ -181,10 +179,11 @@ export async function runReplyAgent(params: {
   const pendingToolTasks = new Set<Promise<void>>();
   const blockReplyTimeoutMs = opts?.blockReplyTimeoutMs ?? BLOCK_REPLY_SEND_TIMEOUT_MS;
 
-  const replyToChannel = resolveOriginMessageProvider({
-    originatingChannel: sessionCtx.OriginatingChannel,
-    provider: sessionCtx.Surface ?? sessionCtx.Provider,
-  }) as OriginatingChannelType | undefined;
+  const replyToChannel =
+    sessionCtx.OriginatingChannel ??
+    ((sessionCtx.Surface ?? sessionCtx.Provider)?.toLowerCase() as
+      | OriginatingChannelType
+      | undefined);
   const replyToMode = resolveReplyToMode(
     followupRun.run.config,
     replyToChannel,
@@ -236,19 +235,7 @@ export async function runReplyAgent(params: {
     }
   }
 
-  const activeRunQueueAction = resolveActiveRunQueueAction({
-    isActive,
-    isHeartbeat,
-    shouldFollowup,
-    queueMode: resolvedQueue.mode,
-  });
-
-  if (activeRunQueueAction === "drop") {
-    typing.cleanup();
-    return undefined;
-  }
-
-  if (activeRunQueueAction === "enqueue-followup") {
+  if (isActive && (shouldFollowup || resolvedQueue.mode === "steer")) {
     enqueueFollowupRun(queueKey, followupRun, resolvedQueue);
     await touchActiveSessionEntry();
     typing.cleanup();
@@ -527,11 +514,7 @@ export async function runReplyAgent(params: {
       messagingToolSentTexts: runResult.messagingToolSentTexts,
       messagingToolSentMediaUrls: runResult.messagingToolSentMediaUrls,
       messagingToolSentTargets: runResult.messagingToolSentTargets,
-      originatingChannel: sessionCtx.OriginatingChannel,
-      originatingTo: resolveOriginMessageTo({
-        originatingTo: sessionCtx.OriginatingTo,
-        to: sessionCtx.To,
-      }),
+      originatingTo: sessionCtx.OriginatingTo ?? sessionCtx.To,
       accountId: sessionCtx.AccountId,
     });
     const { replyPayloads } = payloadResult;

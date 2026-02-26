@@ -102,9 +102,13 @@ export function resolveAuthProfileOrder(params: {
     const inCooldown: Array<{ profileId: string; cooldownUntil: number }> = [];
 
     for (const profileId of deduped) {
-      if (isProfileInCooldown(store, profileId)) {
-        const cooldownUntil =
-          resolveProfileUnusableUntil(store.usageStats?.[profileId] ?? {}) ?? now;
+      const cooldownUntil = resolveProfileUnusableUntil(store.usageStats?.[profileId] ?? {}) ?? 0;
+      if (
+        typeof cooldownUntil === "number" &&
+        Number.isFinite(cooldownUntil) &&
+        cooldownUntil > 0 &&
+        now < cooldownUntil
+      ) {
         inCooldown.push({ profileId, cooldownUntil });
       } else {
         available.push(profileId);

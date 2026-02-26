@@ -4,25 +4,9 @@ import type { OpenClawConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
 import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
 
-type BuildMediaLocalRootsOptions = {
-  preferredTmpDir?: string;
-};
-
-let cachedPreferredTmpDir: string | undefined;
-
-function resolveCachedPreferredTmpDir(): string {
-  if (!cachedPreferredTmpDir) {
-    cachedPreferredTmpDir = resolvePreferredOpenClawTmpDir();
-  }
-  return cachedPreferredTmpDir;
-}
-
-function buildMediaLocalRoots(
-  stateDir: string,
-  options: BuildMediaLocalRootsOptions = {},
-): string[] {
+function buildMediaLocalRoots(stateDir: string): string[] {
   const resolvedStateDir = path.resolve(stateDir);
-  const preferredTmpDir = options.preferredTmpDir ?? resolveCachedPreferredTmpDir();
+  const preferredTmpDir = resolvePreferredOpenClawTmpDir();
   return [
     preferredTmpDir,
     path.join(resolvedStateDir, "media"),

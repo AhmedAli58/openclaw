@@ -20,8 +20,6 @@ export type CommandContext = {
   commandBodyNormalized: string;
   from?: string;
   to?: string;
-  /** Internal marker to prevent duplicate reset-hook emission across command pipelines. */
-  resetHookTriggered?: boolean;
 };
 
 export type HandleCommandsParams = {

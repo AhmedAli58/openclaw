@@ -6,12 +6,7 @@ import {
   type SafeBinProfileFixture,
   type SafeBinProfileFixtures,
 } from "./exec-safe-bin-policy.js";
-import {
-  getTrustedSafeBinDirs,
-  listWritableExplicitTrustedSafeBinDirs,
-  normalizeTrustedSafeBinDirs,
-  type WritableTrustedSafeBinDir,
-} from "./exec-safe-bin-trust.js";
+import { getTrustedSafeBinDirs, normalizeTrustedSafeBinDirs } from "./exec-safe-bin-trust.js";
 
 export type ExecSafeBinConfigScope = {
   safeBins?: string[] | null;
@@ -22,7 +17,6 @@ export type ExecSafeBinConfigScope = {
 const INTERPRETER_LIKE_SAFE_BINS = new Set([
   "ash",
   "bash",
-  "busybox",
   "bun",
   "cmd",
   "cmd.exe",
@@ -46,7 +40,6 @@ const INTERPRETER_LIKE_SAFE_BINS = new Set([
   "python3",
   "ruby",
   "sh",
-  "toybox",
   "wscript",
   "zsh",
 ]);
@@ -104,14 +97,12 @@ export function resolveMergedSafeBinProfileFixtures(params: {
 export function resolveExecSafeBinRuntimePolicy(params: {
   global?: ExecSafeBinConfigScope | null;
   local?: ExecSafeBinConfigScope | null;
-  onWarning?: (message: string) => void;
 }): {
   safeBins: Set<string>;
   safeBinProfiles: Readonly<Record<string, SafeBinProfile>>;
   trustedSafeBinDirs: ReadonlySet<string>;
   unprofiledSafeBins: string[];
   unprofiledInterpreterSafeBins: string[];
-  writableTrustedSafeBinDirs: ReadonlyArray<WritableTrustedSafeBinDir>;
 } {
   const safeBins = resolveSafeBins(params.local?.safeBins ?? params.global?.safeBins);
   const safeBinProfiles = resolveSafeBinProfiles(
@@ -123,35 +114,17 @@ export function resolveExecSafeBinRuntimePolicy(params: {
   const unprofiledSafeBins = Array.from(safeBins)
     .filter((entry) => !safeBinProfiles[entry])
     .toSorted();
-  const explicitTrustedSafeBinDirs = [
-    ...normalizeTrustedSafeBinDirs(params.global?.safeBinTrustedDirs),
-    ...normalizeTrustedSafeBinDirs(params.local?.safeBinTrustedDirs),
-  ];
   const trustedSafeBinDirs = getTrustedSafeBinDirs({
-    extraDirs: explicitTrustedSafeBinDirs,
+    extraDirs: [
+      ...normalizeTrustedSafeBinDirs(params.global?.safeBinTrustedDirs),
+      ...normalizeTrustedSafeBinDirs(params.local?.safeBinTrustedDirs),
+    ],
   });
-  const writableTrustedSafeBinDirs = listWritableExplicitTrustedSafeBinDirs(
-    explicitTrustedSafeBinDirs,
-  );
-  if (params.onWarning) {
-    for (const hit of writableTrustedSafeBinDirs) {
-      const scope =
-        hit.worldWritable || hit.groupWritable
-          ? hit.worldWritable
-            ? "world-writable"
-            : "group-writable"
-          : "writable";
-      params.onWarning(
-        `exec: safeBinTrustedDirs includes ${scope} directory '${hit.dir}'; remove trust or tighten permissions (for example chmod 755).`,
-      );
-    }
-  }
   return {
     safeBins,
     safeBinProfiles,
     trustedSafeBinDirs,
     unprofiledSafeBins,
     unprofiledInterpreterSafeBins: listInterpreterLikeSafeBins(unprofiledSafeBins),
-    writableTrustedSafeBinDirs,
   };
 }

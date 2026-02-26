@@ -95,7 +95,7 @@ export function resolveIMessageInboundDecision(params: {
   storeAllowFrom: string[];
   historyLimit: number;
   groupHistories: Map<string, HistoryEntry[]>;
-  echoCache?: { has: (scope: string, lookup: { text?: string; messageId?: string }) => boolean };
+  echoCache?: { has: (scope: string, text: string) => boolean };
   logVerbose?: (msg: string) => void;
 }): IMessageInboundDecision {
   const senderRaw = params.message.sender ?? "";
@@ -224,23 +224,15 @@ export function resolveIMessageInboundDecision(params: {
 
   // Echo detection: check if the received message matches a recently sent message (within 5 seconds).
   // Scope by conversation so same text in different chats is not conflated.
-  const inboundMessageId = params.message.id != null ? String(params.message.id) : undefined;
-  if (params.echoCache && (messageText || inboundMessageId)) {
+  if (params.echoCache && messageText) {
     const echoScope = buildIMessageEchoScope({
       accountId: params.accountId,
       isGroup,
       chatId,
       sender,
     });
-    if (
-      params.echoCache.has(echoScope, {
-        text: messageText || undefined,
-        messageId: inboundMessageId,
-      })
-    ) {
-      params.logVerbose?.(
-        describeIMessageEchoDropLog({ messageText, messageId: inboundMessageId }),
-      );
+    if (params.echoCache.has(echoScope, messageText)) {
+      params.logVerbose?.(describeIMessageEchoDropLog({ messageText }));
       return { kind: "drop", reason: "echo" };
     }
   }
@@ -487,11 +479,6 @@ export function buildIMessageEchoScope(params: {
   return `${params.accountId}:${params.isGroup ? formatIMessageChatTarget(params.chatId) : `imessage:${params.sender}`}`;
 }
 
-export function describeIMessageEchoDropLog(params: {
-  messageText: string;
-  messageId?: string;
-}): string {
-  const preview = truncateUtf16Safe(params.messageText, 50);
-  const messageIdPart = params.messageId ? ` id=${params.messageId}` : "";
-  return `imessage: skipping echo message${messageIdPart}: "${preview}"`;
+export function describeIMessageEchoDropLog(params: { messageText: string }): string {
+  return `imessage: skipping echo message (matches recently sent text within 5s): "${truncateUtf16Safe(params.messageText, 50)}"`;
 }

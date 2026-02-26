@@ -71,10 +71,6 @@ export async function deliverAgentCommandResult(params: {
   const { cfg, deps, runtime, opts, sessionEntry, payloads, result } = params;
   const deliver = opts.deliver === true;
   const bestEffortDeliver = opts.bestEffortDeliver === true;
-  const turnSourceChannel = opts.runContext?.messageChannel ?? opts.messageChannel;
-  const turnSourceTo = opts.runContext?.currentChannelId ?? opts.to;
-  const turnSourceAccountId = opts.runContext?.accountId ?? opts.accountId;
-  const turnSourceThreadId = opts.runContext?.currentThreadTs ?? opts.threadId;
   const deliveryPlan = resolveAgentDeliveryPlan({
     sessionEntry,
     requestedChannel: opts.replyChannel ?? opts.channel,
@@ -82,10 +78,6 @@ export async function deliverAgentCommandResult(params: {
     explicitThreadId: opts.threadId,
     accountId: opts.replyAccountId ?? opts.accountId,
     wantsDelivery: deliver,
-    turnSourceChannel,
-    turnSourceTo,
-    turnSourceAccountId,
-    turnSourceThreadId,
   });
   let deliveryChannel = deliveryPlan.resolvedChannel;
   const explicitChannelHint = (opts.replyChannel ?? opts.channel)?.trim();

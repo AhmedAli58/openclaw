@@ -14,27 +14,12 @@ import {
   migrateLegacyConfig,
   readConfigFileSnapshot,
 } from "../config/config.js";
-import { collectProviderDangerousNameMatchingScopes } from "../config/dangerous-name-matching.js";
 import { applyPluginAutoEnable } from "../config/plugin-auto-enable.js";
 import { parseToolsBySenderTypedKey } from "../config/types.tools.js";
-import { resolveCommandResolutionFromArgv } from "../infra/exec-command-resolution.js";
 import {
   listInterpreterLikeSafeBins,
   resolveMergedSafeBinProfileFixtures,
 } from "../infra/exec-safe-bin-runtime-policy.js";
-import {
-  getTrustedSafeBinDirs,
-  isTrustedSafeBinPath,
-  normalizeTrustedSafeBinDirs,
-} from "../infra/exec-safe-bin-trust.js";
-import {
-  isDiscordMutableAllowEntry,
-  isGoogleChatMutableAllowEntry,
-  isIrcMutableAllowEntry,
-  isMSTeamsMutableAllowEntry,
-  isMattermostMutableAllowEntry,
-  isSlackMutableAllowEntry,
-} from "../security/mutable-allowlist-detectors.js";
 import { listTelegramAccountIds, resolveTelegramAccount } from "../telegram/accounts.js";
 import { note } from "../terminal/note.js";
 import { isRecord, resolveHomeDir } from "../utils.js";
@@ -205,6 +190,10 @@ function asObjectRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
+}
+
+function asOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function collectTelegramAccountScopes(
@@ -600,6 +589,148 @@ type MutableAllowlistHit = {
   dangerousFlagPath: string;
 };
 
+type ProviderAccountScope = {
+  prefix: string;
+  account: Record<string, unknown>;
+  dangerousNameMatchingEnabled: boolean;
+  dangerousFlagPath: string;
+};
+
+function collectProviderAccountScopes(
+  cfg: OpenClawConfig,
+  provider: string,
+): ProviderAccountScope[] {
+  const scopes: ProviderAccountScope[] = [];
+  const channels = asObjectRecord(cfg.channels);
+  if (!channels) {
+    return scopes;
+  }
+  const providerCfg = asObjectRecord(channels[provider]);
+  if (!providerCfg) {
+    return scopes;
+  }
+  const providerPrefix = `channels.${provider}`;
+  const providerDangerousFlagPath = `${providerPrefix}.dangerouslyAllowNameMatching`;
+  const providerDangerousNameMatchingEnabled = providerCfg.dangerouslyAllowNameMatching === true;
+  scopes.push({
+    prefix: providerPrefix,
+    account: providerCfg,
+    dangerousNameMatchingEnabled: providerDangerousNameMatchingEnabled,
+    dangerousFlagPath: providerDangerousFlagPath,
+  });
+  const accounts = asObjectRecord(providerCfg.accounts);
+  if (!accounts) {
+    return scopes;
+  }
+  for (const key of Object.keys(accounts)) {
+    const account = asObjectRecord(accounts[key]);
+    if (!account) {
+      continue;
+    }
+    const accountPrefix = `${providerPrefix}.accounts.${key}`;
+    const accountDangerousNameMatching = asOptionalBoolean(account.dangerouslyAllowNameMatching);
+    scopes.push({
+      prefix: accountPrefix,
+      account,
+      dangerousNameMatchingEnabled:
+        accountDangerousNameMatching ?? providerDangerousNameMatchingEnabled,
+      dangerousFlagPath:
+        accountDangerousNameMatching == null
+          ? providerDangerousFlagPath
+          : `${accountPrefix}.dangerouslyAllowNameMatching`,
+    });
+  }
+  return scopes;
+}
+
+function isDiscordMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || text === "*") {
+    return false;
+  }
+  const maybeMentionId = text.replace(/^<@!?/, "").replace(/>$/, "");
+  if (/^\d+$/.test(maybeMentionId)) {
+    return false;
+  }
+  for (const prefix of ["discord:", "user:", "pk:"]) {
+    if (!text.startsWith(prefix)) {
+      continue;
+    }
+    return text.slice(prefix.length).trim().length === 0;
+  }
+  return true;
+}
+
+function isSlackMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || text === "*") {
+    return false;
+  }
+  const mentionMatch = text.match(/^<@([A-Z0-9]+)>$/i);
+  if (mentionMatch && /^[A-Z0-9]{8,}$/i.test(mentionMatch[1] ?? "")) {
+    return false;
+  }
+  const withoutPrefix = text.replace(/^(slack|user):/i, "").trim();
+  if (/^[UWBCGDT][A-Z0-9]{2,}$/.test(withoutPrefix)) {
+    return false;
+  }
+  if (/^[A-Z0-9]{8,}$/i.test(withoutPrefix)) {
+    return false;
+  }
+  return true;
+}
+
+function isGoogleChatMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || text === "*") {
+    return false;
+  }
+  const withoutPrefix = text.replace(/^(googlechat|google-chat|gchat):/i, "").trim();
+  if (!withoutPrefix) {
+    return false;
+  }
+  const withoutUsers = withoutPrefix.replace(/^users\//i, "");
+  return withoutUsers.includes("@");
+}
+
+function isMSTeamsMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || text === "*") {
+    return false;
+  }
+  const withoutPrefix = text.replace(/^(msteams|user):/i, "").trim();
+  return /\s/.test(withoutPrefix) || withoutPrefix.includes("@");
+}
+
+function isMattermostMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim();
+  if (!text || text === "*") {
+    return false;
+  }
+  const normalized = text
+    .replace(/^(mattermost|user):/i, "")
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+  // Mattermost user IDs are stable 26-char lowercase/number tokens.
+  if (/^[a-z0-9]{26}$/.test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+function isIrcMutableAllowEntry(raw: string): boolean {
+  const text = raw.trim().toLowerCase();
+  if (!text || text === "*") {
+    return false;
+  }
+  const normalized = text
+    .replace(/^irc:/, "")
+    .replace(/^user:/, "")
+    .trim();
+  return !normalized.includes("!") && !normalized.includes("@");
+}
+
 function addMutableAllowlistHits(params: {
   hits: MutableAllowlistHit[];
   pathLabel: string;
@@ -631,7 +762,7 @@ function addMutableAllowlistHits(params: {
 function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[] {
   const hits: MutableAllowlistHit[] = [];
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "discord")) {
+  for (const scope of collectProviderAccountScopes(cfg, "discord")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -692,7 +823,7 @@ function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[]
     }
   }
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "slack")) {
+  for (const scope of collectProviderAccountScopes(cfg, "slack")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -735,7 +866,7 @@ function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[]
     }
   }
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "googlechat")) {
+  for (const scope of collectProviderAccountScopes(cfg, "googlechat")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -778,7 +909,7 @@ function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[]
     }
   }
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "msteams")) {
+  for (const scope of collectProviderAccountScopes(cfg, "msteams")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -800,7 +931,7 @@ function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[]
     });
   }
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "mattermost")) {
+  for (const scope of collectProviderAccountScopes(cfg, "mattermost")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -822,7 +953,7 @@ function scanMutableAllowlistEntries(cfg: OpenClawConfig): MutableAllowlistHit[]
     });
   }
 
-  for (const scope of collectProviderDangerousNameMatchingScopes(cfg, "irc")) {
+  for (const scope of collectProviderAccountScopes(cfg, "irc")) {
     if (scope.dangerousNameMatchingEnabled) {
       continue;
     }
@@ -1007,13 +1138,6 @@ type ExecSafeBinScopeRef = {
   safeBins: string[];
   exec: Record<string, unknown>;
   mergedProfiles: Record<string, unknown>;
-  trustedSafeBinDirs: ReadonlySet<string>;
-};
-
-type ExecSafeBinTrustedDirHintHit = {
-  scopePath: string;
-  bin: string;
-  resolvedPath: string;
 };
 
 function normalizeConfiguredSafeBins(entries: unknown): string[] {
@@ -1029,19 +1153,9 @@ function normalizeConfiguredSafeBins(entries: unknown): string[] {
   ).toSorted();
 }
 
-function normalizeConfiguredTrustedSafeBinDirs(entries: unknown): string[] {
-  if (!Array.isArray(entries)) {
-    return [];
-  }
-  return normalizeTrustedSafeBinDirs(
-    entries.filter((entry): entry is string => typeof entry === "string"),
-  );
-}
-
 function collectExecSafeBinScopes(cfg: OpenClawConfig): ExecSafeBinScopeRef[] {
   const scopes: ExecSafeBinScopeRef[] = [];
   const globalExec = asObjectRecord(cfg.tools?.exec);
-  const globalTrustedDirs = normalizeConfiguredTrustedSafeBinDirs(globalExec?.safeBinTrustedDirs);
   if (globalExec) {
     const safeBins = normalizeConfiguredSafeBins(globalExec.safeBins);
     if (safeBins.length > 0) {
@@ -1053,9 +1167,6 @@ function collectExecSafeBinScopes(cfg: OpenClawConfig): ExecSafeBinScopeRef[] {
           resolveMergedSafeBinProfileFixtures({
             global: globalExec,
           }) ?? {},
-        trustedSafeBinDirs: getTrustedSafeBinDirs({
-          extraDirs: globalTrustedDirs,
-        }),
       });
     }
   }
@@ -1081,12 +1192,6 @@ function collectExecSafeBinScopes(cfg: OpenClawConfig): ExecSafeBinScopeRef[] {
           global: globalExec,
           local: agentExec,
         }) ?? {},
-      trustedSafeBinDirs: getTrustedSafeBinDirs({
-        extraDirs: [
-          ...globalTrustedDirs,
-          ...normalizeConfiguredTrustedSafeBinDirs(agentExec.safeBinTrustedDirs),
-        ],
-      }),
     });
   }
   return scopes;
@@ -1104,32 +1209,6 @@ function scanExecSafeBinCoverage(cfg: OpenClawConfig): ExecSafeBinCoverageHit[] 
         scopePath: scope.scopePath,
         bin,
         isInterpreter: interpreterBins.has(bin),
-      });
-    }
-  }
-  return hits;
-}
-
-function scanExecSafeBinTrustedDirHints(cfg: OpenClawConfig): ExecSafeBinTrustedDirHintHit[] {
-  const hits: ExecSafeBinTrustedDirHintHit[] = [];
-  for (const scope of collectExecSafeBinScopes(cfg)) {
-    for (const bin of scope.safeBins) {
-      const resolution = resolveCommandResolutionFromArgv([bin]);
-      if (!resolution?.resolvedPath) {
-        continue;
-      }
-      if (
-        isTrustedSafeBinPath({
-          resolvedPath: resolution.resolvedPath,
-          trustedDirs: scope.trustedSafeBinDirs,
-        })
-      ) {
-        continue;
-      }
-      hits.push({
-        scopePath: scope.scopePath,
-        bin,
-        resolvedPath: resolution.resolvedPath,
       });
     }
   }
@@ -1543,25 +1622,6 @@ export async function loadAndMaybeMigrateDoctorConfig(params: {
       }
       lines.push(
         `- Run "${formatCliCommand("openclaw doctor --fix")}" to scaffold missing custom safeBinProfiles entries.`,
-      );
-      note(lines.join("\n"), "Doctor warnings");
-    }
-
-    const safeBinTrustedDirHints = scanExecSafeBinTrustedDirHints(candidate);
-    if (safeBinTrustedDirHints.length > 0) {
-      const lines = safeBinTrustedDirHints
-        .slice(0, 5)
-        .map(
-          (hit) =>
-            `- ${hit.scopePath}.safeBins entry '${hit.bin}' resolves to '${hit.resolvedPath}' outside trusted safe-bin dirs.`,
-        );
-      if (safeBinTrustedDirHints.length > 5) {
-        lines.push(
-          `- ${safeBinTrustedDirHints.length - 5} more safeBins entries resolve outside trusted safe-bin dirs.`,
-        );
-      }
-      lines.push(
-        "- If intentional, add the binary directory to tools.exec.safeBinTrustedDirs (global or agent scope).",
       );
       note(lines.join("\n"), "Doctor warnings");
     }

@@ -60,26 +60,4 @@ describe("buildEmbeddedRunPayloads tool-error warnings", () => {
       absentDetail,
     });
   });
-
-  it("suppresses sessions_send errors to avoid leaking transient relay failures", () => {
-    const payloads = buildPayloads({
-      lastToolError: { toolName: "sessions_send", error: "delivery timeout" },
-      verboseLevel: "on",
-    });
-
-    expect(payloads).toHaveLength(0);
-  });
-
-  it("suppresses sessions_send errors even when marked mutating", () => {
-    const payloads = buildPayloads({
-      lastToolError: {
-        toolName: "sessions_send",
-        error: "delivery timeout",
-        mutatingAction: true,
-      },
-      verboseLevel: "on",
-    });
-
-    expect(payloads).toHaveLength(0);
-  });
 });

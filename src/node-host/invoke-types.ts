@@ -1,5 +1,3 @@
-import type { SkillBinTrustEntry } from "../infra/exec-approvals.js";
-
 export type SystemRunParams = {
   command: string[];
   rawCommand?: string | null;
@@ -37,5 +35,5 @@ export type ExecEventPayload = {
 };
 
 export type SkillBinsProvider = {
-  current(force?: boolean): Promise<SkillBinTrustEntry[]>;
+  current(force?: boolean): Promise<Set<string>>;
 };

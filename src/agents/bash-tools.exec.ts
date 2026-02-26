@@ -25,7 +25,6 @@ import {
   renderExecHostLabel,
   resolveApprovalRunningNoticeMs,
   runExecProcess,
-  sanitizeHostBaseEnv,
   execSchema,
   validateHostEnv,
 } from "./bash-tools.exec-runtime.js";
@@ -175,9 +174,6 @@ export function createExecTool(
       safeBins: defaults?.safeBins,
       safeBinTrustedDirs: defaults?.safeBinTrustedDirs,
       safeBinProfiles: defaults?.safeBinProfiles,
-    },
-    onWarning: (message) => {
-      logInfo(message);
     },
   });
   if (unprofiledSafeBins.length > 0) {
@@ -360,8 +356,7 @@ export function createExecTool(
         workdir = resolveWorkdir(rawWorkdir, warnings);
       }
 
-      const inheritedBaseEnv = coerceEnv(process.env);
-      const baseEnv = host === "sandbox" ? inheritedBaseEnv : sanitizeHostBaseEnv(inheritedBaseEnv);
+      const baseEnv = coerceEnv(process.env);
 
       // Logic: Sandbox gets raw env. Host (gateway/node) must pass validation.
       // We validate BEFORE merging to prevent any dangerous vars from entering the stream.

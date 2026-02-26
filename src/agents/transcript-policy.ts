@@ -55,12 +55,12 @@ function isOpenAiProvider(provider?: string | null): boolean {
 }
 
 function isAnthropicApi(modelApi?: string | null, provider?: string | null): boolean {
-  if (modelApi === "anthropic-messages" || modelApi === "bedrock-converse-stream") {
+  if (modelApi === "anthropic-messages") {
     return true;
   }
   const normalized = normalizeProviderId(provider ?? "");
   // MiniMax now uses openai-completions API, not anthropic-messages
-  return normalized === "anthropic" || normalized === "amazon-bedrock";
+  return normalized === "anthropic";
 }
 
 function isMistralModel(params: { provider?: string | null; modelId?: string | null }): boolean {
@@ -108,10 +108,7 @@ export function resolveTranscriptPolicy(params: {
     : sanitizeToolCallIds
       ? "strict"
       : undefined;
-  // All providers need orphaned tool_result repair after history truncation.
-  // OpenAI rejects function_call_output items whose call_id has no matching
-  // function_call in the conversation, so the repair must run universally.
-  const repairToolUseResultPairing = true;
+  const repairToolUseResultPairing = isGoogle || isAnthropic;
   const sanitizeThoughtSignatures =
     isOpenRouterGemini || isGoogle ? { allowBase64Only: true, includeCamelCase: true } : undefined;
 
@@ -119,7 +116,7 @@ export function resolveTranscriptPolicy(params: {
     sanitizeMode: isOpenAi ? "images-only" : needsNonImageSanitize ? "full" : "images-only",
     sanitizeToolCallIds: !isOpenAi && sanitizeToolCallIds,
     toolCallIdMode,
-    repairToolUseResultPairing,
+    repairToolUseResultPairing: !isOpenAi && repairToolUseResultPairing,
     preserveSignatures: false,
     sanitizeThoughtSignatures: isOpenAi ? undefined : sanitizeThoughtSignatures,
     sanitizeThinkingSignatures: false,

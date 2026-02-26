@@ -208,7 +208,7 @@ export function createHooksRequestHandler(
     logHooks: SubsystemLogger;
   } & HookDispatchers,
 ): HooksRequestHandler {
-  const { getHooksConfig, logHooks, dispatchAgentHook, dispatchWakeHook } = opts;
+  const { getHooksConfig, bindHost, port, logHooks, dispatchAgentHook, dispatchWakeHook } = opts;
   const hookAuthLimiter = createAuthRateLimiter({
     maxAttempts: HOOK_AUTH_FAILURE_LIMIT,
     windowMs: HOOK_AUTH_FAILURE_WINDOW_MS,
@@ -227,9 +227,7 @@ export function createHooksRequestHandler(
     if (!hooksConfig) {
       return false;
     }
-    // Only pathname/search are used here; keep the base host fixed so bind-host
-    // representation (e.g. IPv6 wildcards) cannot break request parsing.
-    const url = new URL(req.url ?? "/", "http://localhost");
+    const url = new URL(req.url ?? "/", `http://${bindHost}:${port}`);
     const basePath = hooksConfig.basePath;
     if (url.pathname !== basePath && !url.pathname.startsWith(`${basePath}/`)) {
       return false;
@@ -493,7 +491,7 @@ export function createGatewayHttpServer(opts: {
         // Channel HTTP endpoints are gateway-auth protected by default.
         // Non-channel plugin routes remain plugin-owned and must enforce
         // their own auth when exposing sensitive functionality.
-        if (requestPath === "/api/channels" || requestPath.startsWith("/api/channels/")) {
+        if (requestPath.startsWith("/api/channels/")) {
           const token = getBearerToken(req);
           const authResult = await authorizeHttpGatewayConnect({
             auth: resolvedAuth,

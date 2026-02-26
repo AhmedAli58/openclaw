@@ -1,7 +1,6 @@
 import { html } from "lit";
 import { ConnectErrorDetailCodes } from "../../../../src/gateway/protocol/connect-error-details.js";
 import { t, i18n, type Locale } from "../../i18n/index.ts";
-import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "../external-link.ts";
 import { formatRelativeTimestamp, formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
 import { formatNextRun } from "../presenter.ts";
@@ -60,8 +59,8 @@ export function renderOverview(props: OverviewProps) {
           <a
             class="session-link"
             href="https://docs.openclaw.ai/web/control-ui#device-pairing-first-connection"
-            target=${EXTERNAL_LINK_TARGET}
-            rel=${buildExternalLinkRel()}
+            target="_blank"
+            rel="noreferrer"
             title="Device pairing docs (opens in new tab)"
             >Docs: Device pairing</a
           >
@@ -117,8 +116,8 @@ export function renderOverview(props: OverviewProps) {
             <a
               class="session-link"
               href="https://docs.openclaw.ai/web/dashboard"
-              target=${EXTERNAL_LINK_TARGET}
-              rel=${buildExternalLinkRel()}
+              target="_blank"
+              rel="noreferrer"
               title="Control UI auth docs (opens in new tab)"
               >Docs: Control UI auth</a
             >
@@ -133,8 +132,8 @@ export function renderOverview(props: OverviewProps) {
           <a
             class="session-link"
             href="https://docs.openclaw.ai/web/dashboard"
-            target=${EXTERNAL_LINK_TARGET}
-            rel=${buildExternalLinkRel()}
+            target="_blank"
+            rel="noreferrer"
             title="Control UI auth docs (opens in new tab)"
             >Docs: Control UI auth</a
           >
@@ -172,8 +171,8 @@ export function renderOverview(props: OverviewProps) {
           <a
             class="session-link"
             href="https://docs.openclaw.ai/gateway/tailscale"
-            target=${EXTERNAL_LINK_TARGET}
-            rel=${buildExternalLinkRel()}
+            target="_blank"
+            rel="noreferrer"
             title="Tailscale Serve docs (opens in new tab)"
             >Docs: Tailscale Serve</a
           >
@@ -181,8 +180,8 @@ export function renderOverview(props: OverviewProps) {
           <a
             class="session-link"
             href="https://docs.openclaw.ai/web/control-ui#insecure-http"
-            target=${EXTERNAL_LINK_TARGET}
-            rel=${buildExternalLinkRel()}
+            target="_blank"
+            rel="noreferrer"
             title="Insecure HTTP docs (opens in new tab)"
             >Docs: Insecure HTTP</a
           >

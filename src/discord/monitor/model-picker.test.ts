@@ -117,28 +117,6 @@ describe("Discord model picker custom_id", () => {
     });
   });
 
-  it("parses compact custom_id aliases", () => {
-    const parsed = parseDiscordModelPickerData({
-      c: "models",
-      a: "submit",
-      v: "models",
-      u: "42",
-      p: "openai",
-      g: "3",
-      mi: "2",
-    });
-
-    expect(parsed).toEqual({
-      command: "models",
-      action: "submit",
-      view: "models",
-      userId: "42",
-      provider: "openai",
-      page: 3,
-      modelIndex: 2,
-    });
-  });
-
   it("parses optional submit model index", () => {
     const parsed = parseDiscordModelPickerData({
       cmd: "models",
@@ -200,21 +178,6 @@ describe("Discord model picker custom_id", () => {
         userId: "42",
       }),
     ).toThrow(/custom_id exceeds/i);
-  });
-
-  it("keeps typical submit ids under Discord max length", () => {
-    const customId = buildDiscordModelPickerCustomId({
-      command: "models",
-      action: "submit",
-      view: "models",
-      provider: "azure-openai-responses",
-      page: 1,
-      providerPage: 1,
-      modelIndex: 10,
-      userId: "12345678901234567890",
-    });
-
-    expect(customId.length).toBeLessThanOrEqual(DISCORD_CUSTOM_ID_MAX_CHARS);
   });
 });
 
@@ -362,7 +325,7 @@ describe("Discord model picker rendering", () => {
       return parsed?.action === "provider";
     });
     expect(providerButtons).toHaveLength(Object.keys(entries).length);
-    expect(allButtons.some((component) => (component.custom_id ?? "").includes(";a=nav;"))).toBe(
+    expect(allButtons.some((component) => (component.custom_id ?? "").includes(":act=nav:"))).toBe(
       false,
     );
   });
@@ -389,7 +352,7 @@ describe("Discord model picker rendering", () => {
     expect(rows.length).toBeGreaterThan(0);
 
     const allButtons = rows.flatMap((row) => row.components ?? []);
-    expect(allButtons.some((component) => (component.custom_id ?? "").includes(";a=nav;"))).toBe(
+    expect(allButtons.some((component) => (component.custom_id ?? "").includes(":act=nav:"))).toBe(
       false,
     );
   });

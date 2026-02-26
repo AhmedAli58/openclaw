@@ -353,7 +353,6 @@ export const CLAUDE_PARAM_GROUPS = {
     {
       keys: ["newText", "new_string"],
       label: "newText (newText or new_string)",
-      allowEmpty: true,
     },
   ],
 } as const;
@@ -571,7 +570,7 @@ function mapContainerPathToWorkspaceRoot(params: {
     return params.filePath;
   }
 
-  let candidate = params.filePath.startsWith("@") ? params.filePath.slice(1) : params.filePath;
+  let candidate = params.filePath;
   if (/^file:\/\//i.test(candidate)) {
     try {
       candidate = fileURLToPath(candidate);

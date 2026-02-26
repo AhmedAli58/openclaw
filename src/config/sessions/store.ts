@@ -22,11 +22,7 @@ import { loadConfig } from "../config.js";
 import type { SessionMaintenanceConfig, SessionMaintenanceMode } from "../types.base.js";
 import { enforceSessionDiskBudget, type SessionDiskBudgetSweepResult } from "./disk-budget.js";
 import { deriveSessionMetaPatch } from "./metadata.js";
-import {
-  mergeSessionEntry,
-  normalizeSessionRuntimeModelFields,
-  type SessionEntry,
-} from "./types.js";
+import { mergeSessionEntry, type SessionEntry } from "./types.js";
 
 const log = createSubsystemLogger("sessions/store");
 
@@ -161,7 +157,7 @@ function normalizeSessionStore(store: Record<string, SessionEntry>): void {
     if (!entry) {
       continue;
     }
-    const normalized = normalizeSessionEntryDelivery(normalizeSessionRuntimeModelFields(entry));
+    const normalized = normalizeSessionEntryDelivery(entry);
     if (normalized !== entry) {
       store[key] = normalized;
     }

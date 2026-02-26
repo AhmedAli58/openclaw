@@ -53,6 +53,7 @@ extension OnboardingView {
         .onDisappear {
             self.stopPermissionMonitoring()
             self.stopDiscovery()
+            self.stopAuthMonitoring()
             Task { await self.onboardingWizard.cancelIfRunning() }
         }
         .task {
@@ -60,6 +61,7 @@ extension OnboardingView {
             self.refreshCLIStatus()
             await self.loadWorkspaceDefaults()
             await self.ensureDefaultWorkspace()
+            self.refreshAnthropicOAuthStatus()
             self.refreshBootstrapStatus()
             self.preferredGatewayID = GatewayDiscoveryPreferences.preferredStableID()
         }

@@ -339,7 +339,7 @@ export function handleMessageEnd(
       return;
     }
     ctx.state.lastReasoningSent = formattedReasoning;
-    void onBlockReply?.({ text: formattedReasoning, isReasoning: true });
+    void onBlockReply?.({ text: formattedReasoning });
   };
 
   if (shouldEmitReasoningBeforeAnswer) {

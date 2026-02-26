@@ -27,18 +27,14 @@ function makeDeps(): CliDeps {
   };
 }
 
-function mockEmbeddedPayloads(payloads: Array<{ text?: string; isError?: boolean }>) {
+function mockEmbeddedTexts(texts: string[]) {
   vi.mocked(runEmbeddedPiAgent).mockResolvedValue({
-    payloads,
+    payloads: texts.map((text) => ({ text })),
     meta: {
       durationMs: 5,
       agentMeta: { sessionId: "s", provider: "p", model: "m" },
     },
   });
-}
-
-function mockEmbeddedTexts(texts: string[]) {
-  mockEmbeddedPayloads(texts.map((text) => ({ text })));
 }
 
 function mockEmbeddedOk() {
@@ -175,25 +171,6 @@ describe("runCronIsolatedAgentTurn", () => {
 
       expect(res.status).toBe("ok");
       expect(res.summary).toBe("last");
-    });
-  });
-
-  it("returns error when embedded run payload is marked as error", async () => {
-    await withTempHome(async (home) => {
-      mockEmbeddedPayloads([
-        {
-          text: "⚠️ 🛠️ Exec failed: /bin/bash: line 1: python: command not found",
-          isError: true,
-        },
-      ]);
-      const { res } = await runCronTurn(home, {
-        jobPayload: DEFAULT_AGENT_TURN_PAYLOAD,
-        mockTexts: null,
-      });
-
-      expect(res.status).toBe("error");
-      expect(res.error).toContain("command not found");
-      expect(res.summary).toContain("Exec failed");
     });
   });
 

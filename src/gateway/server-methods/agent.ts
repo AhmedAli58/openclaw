@@ -487,16 +487,6 @@ export const agentHandlers: GatewayRequestHandlers = {
       typeof request.threadId === "string" && request.threadId.trim()
         ? request.threadId.trim()
         : undefined;
-    const turnSourceChannel =
-      typeof request.channel === "string" && request.channel.trim()
-        ? request.channel.trim()
-        : undefined;
-    const turnSourceTo =
-      typeof request.to === "string" && request.to.trim() ? request.to.trim() : undefined;
-    const turnSourceAccountId =
-      typeof request.accountId === "string" && request.accountId.trim()
-        ? request.accountId.trim()
-        : undefined;
     const deliveryPlan = resolveAgentDeliveryPlan({
       sessionEntry,
       requestedChannel: request.replyChannel ?? request.channel,
@@ -504,10 +494,6 @@ export const agentHandlers: GatewayRequestHandlers = {
       explicitThreadId,
       accountId: request.replyAccountId ?? request.accountId,
       wantsDelivery,
-      turnSourceChannel,
-      turnSourceTo,
-      turnSourceAccountId,
-      turnSourceThreadId: explicitThreadId,
     });
 
     let resolvedChannel = deliveryPlan.resolvedChannel;

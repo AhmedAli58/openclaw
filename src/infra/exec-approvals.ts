@@ -16,7 +16,6 @@ export type ExecApprovalRequest = {
   request: {
     command: string;
     cwd?: string | null;
-    nodeId?: string | null;
     host?: string | null;
     security?: string | null;
     ask?: string | null;

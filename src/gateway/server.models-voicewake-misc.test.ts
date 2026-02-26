@@ -328,7 +328,7 @@ describe("gateway server models + voicewake", () => {
     );
   });
 
-  test("models.list includes synthetic entries for allowlist models absent from catalog", async () => {
+  test("models.list falls back to full catalog when allowlist has no catalog match", async () => {
     await withModelsConfig(
       {
         agents: {
@@ -345,13 +345,7 @@ describe("gateway server models + voicewake", () => {
         const res = await listModels();
 
         expect(res.ok).toBe(true);
-        expect(res.payload?.models).toEqual([
-          {
-            id: "not-in-catalog",
-            name: "not-in-catalog",
-            provider: "openai",
-          },
-        ]);
+        expect(res.payload?.models).toEqual(expectedSortedCatalog());
       },
     );
   });

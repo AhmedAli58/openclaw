@@ -291,7 +291,6 @@ export async function continueCall(
   ctx.activeTurnCalls.add(callId);
 
   const turnStartedAt = Date.now();
-  const turnToken = provider.name === "twilio" ? crypto.randomUUID() : undefined;
 
   try {
     await speak(ctx, callId, prompt);
@@ -300,9 +299,9 @@ export async function continueCall(
     persistCallRecord(ctx.storePath, call);
 
     const listenStartedAt = Date.now();
-    await provider.startListening({ callId, providerCallId, turnToken });
+    await provider.startListening({ callId, providerCallId });
 
-    const transcript = await waitForFinalTranscript(ctx, callId, turnToken);
+    const transcript = await waitForFinalTranscript(ctx, callId);
     const transcriptReceivedAt = Date.now();
 
     // Best-effort: stop listening after final transcript.

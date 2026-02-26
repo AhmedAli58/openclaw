@@ -262,7 +262,7 @@ const entries: SubCliEntry[] = [
   },
   {
     name: "skills",
-    description: "List and inspect available skills",
+    description: "Manage installed skills and inspect skill readiness",
     hasSubcommands: true,
     register: async (program) => {
       const mod = await import("../skills-cli.js");

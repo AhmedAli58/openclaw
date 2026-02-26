@@ -21,7 +21,6 @@ import {
   type StatusReactionAdapter,
 } from "../../channels/status-reactions.js";
 import { createTypingCallbacks } from "../../channels/typing.js";
-import { isDangerousNameMatchingEnabled } from "../../config/dangerous-name-matching.js";
 import { resolveDiscordPreviewStreamMode } from "../../config/discord-preview-streaming.js";
 import { resolveMarkdownTableMode } from "../../config/markdown-tables.js";
 import { readSessionUpdatedAt, resolveStorePath } from "../../config/sessions.js";
@@ -30,7 +29,6 @@ import { convertMarkdownTables } from "../../markdown/tables.js";
 import { buildAgentSessionKey } from "../../routing/resolve-route.js";
 import { resolveThreadSessionKeys } from "../../routing/session-key.js";
 import { buildUntrustedChannelMetadata } from "../../security/channel-metadata.js";
-import { stripReasoningTagsFromText } from "../../shared/text/reasoning-tags.js";
 import { truncateUtf16Safe } from "../../utils.js";
 import { chunkDiscordTextWithMode } from "../chunk.js";
 import { resolveDiscordDraftStreamingChunking } from "../draft-chunking.js";
@@ -101,15 +99,10 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
     threadBindings,
     route,
     commandAuthorized,
-    discordRestFetch,
   } = ctx;
 
-  const mediaList = await resolveMediaList(message, mediaMaxBytes, discordRestFetch);
-  const forwardedMediaList = await resolveForwardedMediaList(
-    message,
-    mediaMaxBytes,
-    discordRestFetch,
-  );
+  const mediaList = await resolveMediaList(message, mediaMaxBytes);
+  const forwardedMediaList = await resolveForwardedMediaList(message, mediaMaxBytes);
   mediaList.push(...forwardedMediaList);
   const text = messageText;
   if (!text) {
@@ -152,8 +145,6 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
     enabled: statusReactionsEnabled,
     adapter: discordAdapter,
     initialEmoji: ackReaction,
-    emojis: cfg.messages?.statusReactions?.emojis,
-    timing: cfg.messages?.statusReactions?.timing,
     onError: (err) => {
       logAckFailure({
         log: logVerbose,
@@ -208,7 +199,7 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
     channelConfig,
     guildInfo,
     sender: { id: sender.id, name: sender.name, tag: sender.tag },
-    allowNameMatching: isDangerousNameMatchingEnabled(discordConfig),
+    allowNameMatching: discordConfig?.dangerouslyAllowNameMatching === true,
   });
   const storePath = resolveStorePath(cfg.session?.store, {
     agentId: route.agentId,
@@ -493,13 +484,7 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
     if (!draftStream || !text) {
       return;
     }
-    // Strip reasoning/thinking tags that may leak through the stream.
-    const cleaned = stripReasoningTagsFromText(text, { mode: "strict", trim: "both" });
-    // Skip pure-reasoning messages (e.g. "Reasoning:\n…") that contain no answer text.
-    if (!cleaned || cleaned.startsWith("Reasoning:\n")) {
-      return;
-    }
-    if (cleaned === lastPartialText) {
+    if (text === lastPartialText) {
       return;
     }
     hasStreamedMessage = true;
@@ -507,30 +492,30 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
       // Keep the longer preview to avoid visible punctuation flicker.
       if (
         lastPartialText &&
-        lastPartialText.startsWith(cleaned) &&
-        cleaned.length < lastPartialText.length
+        lastPartialText.startsWith(text) &&
+        text.length < lastPartialText.length
       ) {
         return;
       }
-      lastPartialText = cleaned;
-      draftStream.update(cleaned);
+      lastPartialText = text;
+      draftStream.update(text);
       return;
     }
 
-    let delta = cleaned;
-    if (cleaned.startsWith(lastPartialText)) {
-      delta = cleaned.slice(lastPartialText.length);
+    let delta = text;
+    if (text.startsWith(lastPartialText)) {
+      delta = text.slice(lastPartialText.length);
     } else {
       // Streaming buffer reset (or non-monotonic stream). Start fresh.
       draftChunker?.reset();
       draftText = "";
     }
-    lastPartialText = cleaned;
+    lastPartialText = text;
     if (!delta) {
       return;
     }
     if (!draftChunker) {
-      draftText = cleaned;
+      draftText = text;
       draftStream.update(draftText);
       return;
     }
@@ -569,13 +554,8 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
   const { dispatcher, replyOptions, markDispatchIdle } = createReplyDispatcherWithTyping({
     ...prefixOptions,
     humanDelay: resolveHumanDelayConfig(cfg, route.agentId),
-    typingCallbacks,
     deliver: async (payload: ReplyPayload, info) => {
       const isFinal = info.kind === "final";
-      if (payload.isReasoning) {
-        // Reasoning/thinking payloads should not be delivered to Discord.
-        return;
-      }
       if (draftStream && isFinal) {
         await flushDraft();
         const hasMedia = Boolean(payload.mediaUrl) || (payload.mediaUrls?.length ?? 0) > 0;
@@ -723,18 +703,12 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
     dispatchError = true;
     throw err;
   } finally {
-    try {
-      // Must stop() first to flush debounced content before clear() wipes state.
-      await draftStream?.stop();
-      if (!finalizedViaPreviewMessage) {
-        await draftStream?.clear();
-      }
-    } catch (err) {
-      // Draft cleanup should never keep typing alive.
-      logVerbose(`discord: draft cleanup failed: ${String(err)}`);
-    } finally {
-      markDispatchIdle();
+    // Must stop() first to flush debounced content before clear() wipes state
+    await draftStream?.stop();
+    if (!finalizedViaPreviewMessage) {
+      await draftStream?.clear();
     }
+    markDispatchIdle();
     if (statusReactionsEnabled) {
       if (dispatchError) {
         await statusReactions.setError();

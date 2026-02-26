@@ -82,13 +82,11 @@ export type AuthProbeOptions = {
   maxTokens: number;
 };
 
-export function mapFailoverReasonToProbeStatus(reason?: string | null): AuthProbeStatus {
+const toStatus = (reason?: string | null): AuthProbeStatus => {
   if (!reason) {
     return "unknown";
   }
-  if (reason === "auth" || reason === "auth_permanent") {
-    // Keep probe output backward-compatible: permanent auth failures still
-    // surface in the auth bucket instead of showing as unknown.
+  if (reason === "auth") {
     return "auth";
   }
   if (reason === "rate_limit") {
@@ -104,7 +102,7 @@ export function mapFailoverReasonToProbeStatus(reason?: string | null): AuthProb
     return "format";
   }
   return "unknown";
-}
+};
 
 function buildCandidateMap(modelCandidates: string[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
@@ -348,7 +346,7 @@ async function probeTarget(params: {
       label: target.label,
       source: target.source,
       mode: target.mode,
-      status: mapFailoverReasonToProbeStatus(described.reason),
+      status: toStatus(described.reason),
       error: redactSecrets(described.message),
       latencyMs: Date.now() - start,
     };
