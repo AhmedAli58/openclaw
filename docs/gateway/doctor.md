@@ -61,7 +61,7 @@ cat ~/.openclaw/openclaw.json
 - Optional pre-flight update for git installs (interactive only).
 - UI protocol freshness check (rebuilds Control UI when the protocol schema is newer).
 - Health check + restart prompt.
-- Skills status summary (eligible/missing/blocked).
+- Skills status summary (eligible/missing/blocked) plus recommended high-value skill hints.
 - Config normalization for legacy values.
 - OpenCode Zen provider override warnings (`models.providers.opencode`).
 - Legacy on-disk state migration (sessions/agent dir/WhatsApp auth).
@@ -125,7 +125,6 @@ Current migrations:
 - `agent.*` → `agents.defaults` + `tools.*` (tools/elevated/exec/sandbox/subagents)
 - `agent.model`/`allowedModels`/`modelAliases`/`modelFallbacks`/`imageModelFallbacks`
   → `agents.defaults.models` + `agents.defaults.model.primary/fallbacks` + `agents.defaults.imageModel.primary/fallbacks`
-- `browser.ssrfPolicy.allowPrivateNetwork` → `browser.ssrfPolicy.dangerouslyAllowPrivateNetwork`
 
 ### 2b) OpenCode Zen provider overrides
 
@@ -222,6 +221,11 @@ gateway stays alive after logout.
 
 Doctor prints a quick summary of eligible/missing/blocked skills for the current
 workspace.
+
+When `self-improving-agent`, `github`, or `summarize` are missing from the
+loaded skill set, doctor also prints a recommendation with:
+
+`openclaw skills install self-improving-agent --init`
 
 ### 12) Gateway auth checks (local token)
 

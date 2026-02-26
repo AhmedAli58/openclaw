@@ -8,6 +8,11 @@ const buildWorkspaceSkillStatusMock = vi.fn();
 const formatSkillsListMock = vi.fn();
 const formatSkillInfoMock = vi.fn();
 const formatSkillsCheckMock = vi.fn();
+const searchRegistrySkillsMock = vi.fn();
+const installManagedSkillMock = vi.fn();
+const listManagedSkillsMock = vi.fn();
+const updateManagedSkillMock = vi.fn();
+const removeManagedSkillMock = vi.fn();
 
 const runtime = {
   log: vi.fn(),
@@ -32,6 +37,14 @@ vi.mock("./skills-cli.format.js", () => ({
   formatSkillsList: formatSkillsListMock,
   formatSkillInfo: formatSkillInfoMock,
   formatSkillsCheck: formatSkillsCheckMock,
+}));
+
+vi.mock("../skills-manager/index.js", () => ({
+  searchRegistrySkills: searchRegistrySkillsMock,
+  installManagedSkill: installManagedSkillMock,
+  listManagedSkills: listManagedSkillsMock,
+  updateManagedSkill: updateManagedSkillMock,
+  removeManagedSkill: removeManagedSkillMock,
 }));
 
 vi.mock("../runtime.js", () => ({
@@ -66,10 +79,64 @@ describe("registerSkillsCli", () => {
     formatSkillsListMock.mockReturnValue("skills-list-output");
     formatSkillInfoMock.mockReturnValue("skills-info-output");
     formatSkillsCheckMock.mockReturnValue("skills-check-output");
+    searchRegistrySkillsMock.mockResolvedValue({
+      source: "remote",
+      stale: false,
+      query: "search",
+      skills: [],
+    });
+    installManagedSkillMock.mockResolvedValue({
+      name: "self-improving-agent",
+      version: "1.2.3",
+      path: "/tmp/state/skills/self-improving-agent",
+      initializedWorkspace: true,
+      createdWorkspaceFiles: ["LEARNINGS.md"],
+    });
+    listManagedSkillsMock.mockResolvedValue({
+      source: "remote",
+      stale: false,
+      skills: [],
+    });
+    updateManagedSkillMock.mockResolvedValue({
+      name: "self-improving-agent",
+      path: "/tmp/state/skills/self-improving-agent",
+      updated: true,
+      previousVersion: "1.2.2",
+      version: "1.2.3",
+      preservedFiles: 1,
+    });
+    removeManagedSkillMock.mockResolvedValue({
+      name: "self-improving-agent",
+      path: "/tmp/state/skills/self-improving-agent",
+      removed: true,
+    });
   });
 
-  it("runs list command with resolved report and formatter options", async () => {
-    await runCli(["skills", "list", "--eligible", "--verbose", "--json"]);
+  it("runs managed list command", async () => {
+    listManagedSkillsMock.mockResolvedValueOnce({
+      source: "remote",
+      stale: false,
+      skills: [
+        {
+          name: "self-improving-agent",
+          version: "1.2.3",
+          path: "/tmp/state/skills/self-improving-agent",
+          updateAvailable: false,
+        },
+      ],
+    });
+
+    await runCli(["skills", "list", "--json"]);
+
+    expect(listManagedSkillsMock).toHaveBeenCalled();
+    const payload = JSON.parse(String(runtime.log.mock.calls[0]?.[0])) as {
+      skills: Array<{ name: string }>;
+    };
+    expect(payload.skills[0]?.name).toBe("self-improving-agent");
+  });
+
+  it("runs status command with resolved report and formatter options", async () => {
+    await runCli(["skills", "status", "--eligible", "--verbose", "--json"]);
 
     expect(buildWorkspaceSkillStatusMock).toHaveBeenCalledWith("/tmp/workspace", {
       config: { gateway: {} },
@@ -103,11 +170,47 @@ describe("registerSkillsCli", () => {
     expect(runtime.log).toHaveBeenCalledWith("skills-check-output");
   });
 
-  it("uses list formatter for default skills action", async () => {
+  it("uses managed list for default skills action", async () => {
     await runCli(["skills"]);
 
-    expect(formatSkillsListMock).toHaveBeenCalledWith(report, {});
-    expect(runtime.log).toHaveBeenCalledWith("skills-list-output");
+    expect(listManagedSkillsMock).toHaveBeenCalled();
+    expect(runtime.log).toHaveBeenCalledWith("No managed skills installed.");
+  });
+
+  it("runs search command and forwards query", async () => {
+    await runCli(["skills", "search", "self", "improving", "--json"]);
+
+    expect(searchRegistrySkillsMock).toHaveBeenCalledWith("self improving");
+    const payload = JSON.parse(String(runtime.log.mock.calls[0]?.[0])) as { query: string };
+    expect(payload.query).toBe("self improving");
+  });
+
+  it("runs install command and forwards options", async () => {
+    await runCli(["skills", "install", "self-improving-agent", "--init", "--force", "--json"]);
+
+    expect(installManagedSkillMock).toHaveBeenCalledWith({
+      name: "self-improving-agent",
+      init: true,
+      force: true,
+    });
+    const payload = JSON.parse(String(runtime.log.mock.calls[0]?.[0])) as { name: string };
+    expect(payload.name).toBe("self-improving-agent");
+  });
+
+  it("runs update command and forwards name", async () => {
+    await runCli(["skills", "update", "self-improving-agent", "--json"]);
+
+    expect(updateManagedSkillMock).toHaveBeenCalledWith({ name: "self-improving-agent" });
+    const payload = JSON.parse(String(runtime.log.mock.calls[0]?.[0])) as { updated: boolean };
+    expect(payload.updated).toBe(true);
+  });
+
+  it("runs remove command and forwards name", async () => {
+    await runCli(["skills", "remove", "self-improving-agent", "--json"]);
+
+    expect(removeManagedSkillMock).toHaveBeenCalledWith({ name: "self-improving-agent" });
+    const payload = JSON.parse(String(runtime.log.mock.calls[0]?.[0])) as { removed: boolean };
+    expect(payload.removed).toBe(true);
   });
 
   it("reports runtime errors when report loading fails", async () => {
@@ -115,10 +218,19 @@ describe("registerSkillsCli", () => {
       throw new Error("config exploded");
     });
 
-    await runCli(["skills", "list"]);
+    await runCli(["skills", "status"]);
 
     expect(runtime.error).toHaveBeenCalledWith("Error: config exploded");
     expect(runtime.exit).toHaveBeenCalledWith(1);
     expect(buildWorkspaceSkillStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("reports runtime errors when managed list fails", async () => {
+    listManagedSkillsMock.mockRejectedValueOnce(new Error("boom"));
+
+    await runCli(["skills", "list"]);
+
+    expect(runtime.error).toHaveBeenCalledWith("boom");
+    expect(runtime.exit).toHaveBeenCalledWith(1);
   });
 });

@@ -47,24 +47,33 @@ You can gate them via `metadata.openclaw.requires.config` on the plugin’s conf
 entry. See [Plugins](/tools/plugin) for discovery/config and [Tools](/tools) for the
 tool surface those skills teach.
 
-## ClawHub (install + sync)
+## Registry install and update
 
-ClawHub is the public skills registry for OpenClaw. Browse at
-[https://clawhub.com](https://clawhub.com). Use it to discover, install, update, and back up skills.
-Full guide: [ClawHub](/tools/clawhub).
+OpenClaw can install managed skills directly from the public `openclaw/skills`
+registry:
 
-Common flows:
+```bash
+openclaw skills search self improving
+openclaw skills install self-improving-agent --init
+openclaw skills list
+openclaw skills update self-improving-agent
+openclaw skills remove self-improving-agent
+```
 
-- Install a skill into your workspace:
-  - `clawhub install <skill-slug>`
-- Update all installed skills:
-  - `clawhub update --all`
-- Sync (scan + publish updates):
-  - `clawhub sync --all`
+Managed skills install to `~/.openclaw/skills/<name>`.
 
-By default, `clawhub` installs into `./skills` under your current working
-directory (or falls back to the configured OpenClaw workspace). OpenClaw picks
-that up as `<workspace>/skills` on the next session.
+For `self-improving-agent`, `--init` also creates:
+
+- `~/.openclaw/workspace/.learnings/LEARNINGS.md`
+- `~/.openclaw/workspace/.learnings/ERRORS.md`
+- `~/.openclaw/workspace/.learnings/FEATURE_REQUESTS.md`
+
+These files are created only when missing.
+
+## ClawHub (manual workflow)
+
+ClawHub remains available for search, publish, and sync workflows. Browse
+[https://clawhub.com](https://clawhub.com). Full guide: [ClawHub](/tools/clawhub).
 
 ## Security notes
 

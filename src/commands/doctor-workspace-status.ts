@@ -1,7 +1,9 @@
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { buildWorkspaceSkillStatus } from "../agents/skills-status.js";
+import { formatCliCommand } from "../cli/command-format.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { loadOpenClawPlugins } from "../plugins/loader.js";
+import { HIGH_VALUE_SKILLS } from "../skills-manager/index.js";
 import { note } from "../terminal/note.js";
 import { detectLegacyWorkspaceDirs, formatLegacyWorkspaceWarning } from "./doctor-workspace.js";
 
@@ -24,6 +26,16 @@ export function noteWorkspaceStatus(cfg: OpenClawConfig) {
     ].join("\n"),
     "Skills status",
   );
+
+  const available = new Set(skillsReport.skills.map((skill) => skill.name.trim().toLowerCase()));
+  const missingHighValue = HIGH_VALUE_SKILLS.filter((skill) => !available.has(skill.toLowerCase()));
+  if (missingHighValue.length > 0) {
+    const lines = [
+      `Missing: ${missingHighValue.join(", ")}`,
+      `Install: ${formatCliCommand("openclaw skills install self-improving-agent --init")}`,
+    ];
+    note(lines.join("\n"), "Recommended skills");
+  }
 
   const pluginRegistry = loadOpenClawPlugins({
     config: cfg,
