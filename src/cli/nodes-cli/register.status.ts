@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Command } from "commander";
 import { formatTimeAgo } from "../../infra/format-time/format-relative.ts";
 import { defaultRuntime } from "../../runtime.js";
@@ -36,10 +37,8 @@ function resolveNodeVersions(node: {
   if (!legacy) {
     return { core: undefined, ui: undefined };
   }
-  const platform = node.platform?.trim().toLowerCase() ?? "";
-  const headless =
-    platform === "darwin" || platform === "linux" || platform === "win32" || platform === "windows";
-  return headless ? { core: legacy, ui: undefined } : { core: undefined, ui: legacy };
+  const desktop = isDesktopNodePlatform(node.platform);
+  return desktop ? { core: legacy, ui: undefined } : { core: undefined, ui: legacy };
 }
 
 function formatNodeVersions(node: {
@@ -59,6 +58,24 @@ function formatNodeVersions(node: {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function isDesktopNodePlatform(platform?: string): boolean {
+  const normalized = platform?.trim().toLowerCase() ?? "";
+  return (
+    normalized === "darwin" ||
+    normalized === "linux" ||
+    normalized === "win32" ||
+    normalized === "windows" ||
+    normalized === "macos"
+  );
+}
+
+function detectPathDelimiter(value: string): string {
+  if (value.includes(";")) {
+    return ";";
+  }
+  return path.delimiter;
+}
+
 function formatPathEnv(raw?: string): string | null {
   if (typeof raw !== "string") {
     return null;
@@ -67,9 +84,15 @@ function formatPathEnv(raw?: string): string | null {
   if (!trimmed) {
     return null;
   }
-  const parts = trimmed.split(":").filter(Boolean);
+  const delimiter = detectPathDelimiter(trimmed);
+  const parts = trimmed
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
   const display =
-    parts.length <= 3 ? trimmed : `${parts.slice(0, 2).join(":")}:…:${parts.slice(-1)[0]}`;
+    parts.length <= 3
+      ? parts.join(delimiter)
+      : `${parts.slice(0, 2).join(delimiter)}${delimiter}…${delimiter}${parts.slice(-1)[0]}`;
   return shortenHomeInString(display);
 }
 
@@ -242,7 +265,7 @@ export function registerNodesStatusCommands(nodes: Command) {
           const family = typeof obj.deviceFamily === "string" ? obj.deviceFamily : null;
           const model = typeof obj.modelIdentifier === "string" ? obj.modelIdentifier : null;
           const ip = typeof obj.remoteIp === "string" ? obj.remoteIp : null;
-          const pathEnv = typeof obj.pathEnv === "string" ? obj.pathEnv : null;
+          const pathEnv = typeof obj.pathEnv === "string" ? formatPathEnv(obj.pathEnv) : null;
           const versions = formatNodeVersions(
             obj as {
               platform?: string;
@@ -345,16 +368,15 @@ export function registerNodesStatusCommands(nodes: Command) {
           });
           const filteredLabel =
             hasFilters && filteredPaired.length !== paired.length ? ` (of ${paired.length})` : "";
-          defaultRuntime.log(
-            `Pending: ${pendingRows.length} · Paired: ${filteredPaired.length}${filteredLabel}`,
-          );
-
           if (opts.json) {
             defaultRuntime.log(
               JSON.stringify({ pending: pendingRows, paired: filteredPaired }, null, 2),
             );
             return;
           }
+          defaultRuntime.log(
+            `Pending: ${pendingRows.length} · Paired: ${filteredPaired.length}${filteredLabel}`,
+          );
 
           if (pendingRows.length > 0) {
             const rendered = renderPendingPairingRequestsTable({

@@ -132,6 +132,32 @@ describe("cli program (nodes basics)", () => {
     expect(output).not.toContain("Two");
   });
 
+  it("renders legacy macOS versions as core and truncates Windows PATH in status", async () => {
+    callGateway.mockResolvedValue({
+      ts: Date.now(),
+      nodes: [
+        {
+          nodeId: "mac-node",
+          displayName: "Mac Node",
+          platform: "macos",
+          version: "2026.2.17",
+          pathEnv:
+            "C:\\Windows\\System32;C:\\Program Files\\Git\\cmd;D:\\Tools\\bin;E:\\Custom\\bin",
+          connected: true,
+          paired: true,
+        },
+      ],
+    });
+
+    await runProgram(["nodes", "status"]);
+
+    const output = getRuntimeOutput();
+    expect(output).toContain("core v2026.2.17");
+    expect(output).toContain("path:");
+    expect(output).toContain("C:\\Windows\\System32;C:\\Program");
+    expect(output).toContain("Files\\Git\\cmd;…;E:\\Custom\\bin");
+  });
+
   it.each([
     {
       label: "paired node details",
@@ -228,6 +254,63 @@ describe("cli program (nodes basics)", () => {
     const out = getRuntimeOutput();
     expect(out).toContain("Commands");
     expect(out).toContain("canvas.eval");
+  });
+
+  it("truncates PATH consistently in nodes describe output", async () => {
+    callGateway.mockImplementation(async (...args: unknown[]) => {
+      const opts = (args[0] ?? {}) as { method?: string };
+      if (opts.method === "node.list") {
+        return {
+          nodes: [{ nodeId: "mac-node", displayName: "Mac Node", connected: true }],
+        };
+      }
+      if (opts.method === "node.describe") {
+        return {
+          nodeId: "mac-node",
+          displayName: "Mac Node",
+          connected: true,
+          paired: true,
+          platform: "macos",
+          version: "2026.2.17",
+          pathEnv:
+            "C:\\Windows\\System32;C:\\Program Files\\Git\\cmd;D:\\Tools\\bin;E:\\Custom\\bin",
+          commands: [],
+          caps: [],
+        };
+      }
+      return { ok: true };
+    });
+
+    await runProgram(["nodes", "describe", "--node", "mac-node"]);
+
+    const output = getRuntimeOutput();
+    expect(output).toContain(
+      "C:\\Windows\\System32;C:\\Program Files\\Git\\cmd;…;E:\\Custom\\bin",
+    );
+    expect(output).toContain("core v2026.2.17");
+  });
+
+  it("emits valid JSON only for nodes list --json", async () => {
+    callGateway.mockImplementation(async (...args: unknown[]) => {
+      const opts = (args[0] ?? {}) as { method?: string };
+      if (opts.method === "node.pair.list") {
+        return {
+          pending: [],
+          paired: [{ nodeId: "n1", displayName: "One", remoteIp: "10.0.0.1" }],
+        };
+      }
+      return { ok: true };
+    });
+
+    await runProgram(["nodes", "list", "--json"]);
+
+    const output = getRuntimeOutput();
+    expect(runtime.log).toHaveBeenCalledTimes(1);
+    expect(() => JSON.parse(output)).not.toThrow();
+    expect(JSON.parse(output)).toEqual({
+      pending: [],
+      paired: [{ nodeId: "n1", displayName: "One", remoteIp: "10.0.0.1" }],
+    });
   });
 
   it("runs nodes approve and calls node.pair.approve", async () => {
